@@ -1,6 +1,7 @@
 ﻿using HarmonyLib;
 using MGSC;
 using System;
+using System.Data.SqlTypes;
 using System.Reflection;
 using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using TMPro;
@@ -27,7 +28,7 @@ namespace QM_CameraZoomTweaker
         private static Vector3 mouseWorldPosAfter;
 
         private static float lastZoomTime = 0f;
-        private static float zoomCooldown = 0.50f; // Minimum time between zoom operations (ms)
+        private static float zoomCooldown = 0.15f; // Minimum time between zoom operations (ms)
 
         private static Vector3 storedCameraPosition;
         private static float lastCameraPositionChangeTime = 0f;
@@ -82,17 +83,10 @@ namespace QM_CameraZoomTweaker
                     Camera camera = dungeonGameMode._camera.Camera;
                     mouseWorldPosBefore = camera.ScreenToWorldPoint(new Vector3(mouseScreenPos.x, mouseScreenPos.y, camera.nearClipPlane));
                     cameraNeedMoving = true;
-                    cooldownInProgress = true;
                     lastZoomTime = Time.time;
                 }
 
                 return true;
-            }
-
-            [HarmonyPostfix]
-            public static void Postfix()
-            {
-
             }
         }
 
@@ -116,7 +110,6 @@ namespace QM_CameraZoomTweaker
                     Camera camera = dungeonGameMode._camera.Camera;
                     mouseWorldPosBefore = camera.ScreenToWorldPoint(new Vector3(mouseScreenPos.x, mouseScreenPos.y, camera.nearClipPlane));
                     cameraNeedMoving = true;
-                    cooldownInProgress = true;
                     lastZoomTime = Time.time;
                 }
 
@@ -374,6 +367,8 @@ namespace QM_CameraZoomTweaker
 
                 // Set camera mode if needed
                 gameCamera.SetCameraMode(CameraMode.BorderMove);
+                cameraNeedMoving = false;
+                cooldownInProgress = true;
             }
 
             if (cooldownInProgress)
