@@ -26,6 +26,9 @@ namespace QM_CameraZoomTweaker
         private static Vector3 mouseWorldPosBefore;
         private static Vector3 mouseWorldPosAfter;
 
+        private static float lastZoomTime = 0f;
+        private static float zoomCooldown = 0.150f; // Minimum time between zoom operations (ms)
+
         [Hook(ModHookType.MainMenuStarted)]
         public static void MainMenuStarted(IModContext context)
         {
@@ -57,8 +60,13 @@ namespace QM_CameraZoomTweaker
         public static class ZoomIn_Patch
         {
             [HarmonyPrefix]
-            public static void Prefix()
+            public static bool Prefix()
             {
+                if (cameraNeedMoving)
+                {
+                    return false; // While we are handling camera movement, ignore the original method.
+                }
+
                 if (dungeonGameMode != null)
                 {
                     // Get mouse position in screen coordinates
@@ -70,7 +78,10 @@ namespace QM_CameraZoomTweaker
                     Plugin.Logger.Log($"ZoomIn_Patch - Mouse world pos before zoom: {mouseWorldPosBefore}");
                     cameraNeedMoving = true;
                     cameraZoomIn = true;
+                    lastZoomTime = Time.time;
                 }
+
+                return true;
             }
 
             [HarmonyPostfix]
@@ -84,8 +95,13 @@ namespace QM_CameraZoomTweaker
         public static class ZoomOut_Patch
         {
             [HarmonyPrefix]
-            public static void Prefix()
+            public static bool Prefix()
             {
+                if (cameraNeedMoving)
+                {
+                    return false; // While we are handling camera movement, ignore the original method.
+                }
+
                 if (dungeonGameMode != null)
                 {
                     // Get mouse position in screen coordinates
@@ -97,7 +113,10 @@ namespace QM_CameraZoomTweaker
                     Plugin.Logger.Log($"ZoomOut_Patch - Mouse world pos before zoom: {mouseWorldPosBefore}");
                     cameraNeedMoving = true;
                     cameraZoomIn = false;
+                    lastZoomTime = Time.time;
                 }
+
+                return true;
             }
         }
 
@@ -329,7 +348,6 @@ namespace QM_CameraZoomTweaker
             if (cameraNeedMoving && dungeonGameMode != null)
             {
                 Plugin.Logger.Log("ZoomIn_Patch Postfix");
-                cameraNeedMoving = false;
 
                 if (cameraZoomIn)
                 {
@@ -353,7 +371,7 @@ namespace QM_CameraZoomTweaker
                     Plugin.Logger.Log($"ZoomIn_Patch - Moving camera from {currentCameraPos} to {targetCameraPos}");
 
                     // Move camera to compensate for the zoom shift
-                    gameCamera.MoveCameraToPosition(targetCameraPos, 0.1f); // Small duration for smooth transition
+                    gameCamera.MoveCameraToPosition(targetCameraPos, 0f); // Small duration for smooth transition
 
                     // Set camera mode if needed
                     gameCamera.SetCameraMode(CameraMode.BorderMove);
@@ -383,10 +401,16 @@ namespace QM_CameraZoomTweaker
                     Plugin.Logger.Log($"ZoomOut_Patch - Moving camera from {currentCameraPos} to {targetCameraPos}");
                     
                     // Move camera to compensate for the zoom shift
-                    gameCamera.MoveCameraToPosition(targetCameraPos, 0.1f); // Small duration for smooth transition
+                    gameCamera.MoveCameraToPosition(targetCameraPos, 0f); // Small duration for smooth transition
                     
                     // Set camera mode if needed
                     gameCamera.SetCameraMode(CameraMode.BorderMove);
+                }
+
+                // Block the zoom operation unless colldown is over
+                if (Time.time - lastZoomTime > zoomCooldown)
+                {
+                    cameraNeedMoving = false;
                 }
             }
         }
