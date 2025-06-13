@@ -36,6 +36,10 @@ namespace QM_CameraZoomTweaker
         private static float cameraPositionTolerance = 0.01f; // Small tolerance for position comparison
         private static float cameraMoveSpeed = 0f; // Speed of camera movement (0.25f is default)
 
+        private static bool isPanning = false;
+        private static Vector3 lastPanMousePosition;
+        private static float panSensitivity = 1.0f; // Adjust this value to control pan speed
+
         [Hook(ModHookType.MainMenuStarted)]
         public static void MainMenuStarted(IModContext context)
         {
@@ -133,6 +137,7 @@ namespace QM_CameraZoomTweaker
                 _lastZoom = GameCamera._lastZoom;
             }
 
+            HandleCameraPanning();
             HandleCameraMovement();
 
             if (!isInitialized)
@@ -342,6 +347,11 @@ namespace QM_CameraZoomTweaker
 
         private static void HandleCameraMovement()
         {
+            if (isPanning)
+            {
+                return;
+            }
+
             if (cameraNeedMoving && dungeonGameMode != null)
             {
                 var gameCamera = dungeonGameMode._camera;
@@ -397,6 +407,71 @@ namespace QM_CameraZoomTweaker
                 {
                     Plugin.Logger.Log($"Camera movement complete - Cooldown: {cooldownComplete}, Camera stopped: {cameraStoppedMoving}");
                     cooldownInProgress = false;
+                }
+            }
+        }
+
+        private static void HandleCameraPanning()
+        {
+            if (dungeonGameMode == null) return;
+
+            var gameCamera = dungeonGameMode._camera;
+            if (gameCamera == null) return;
+
+            // Check for pan input (Middle mouse button, Mouse button 4, or Mouse button 5)
+            bool panInputPressed = Input.GetMouseButton(2) || // Middle mouse button
+                                  Input.GetMouseButton(3) || // Mouse button 4 (back)
+                                  Input.GetMouseButton(4);   // Mouse button 5 (forward)
+
+            if (panInputPressed)
+            {
+                if (!isPanning)
+                {
+                    // Start panning
+                    isPanning = true;
+                    lastPanMousePosition = Input.mousePosition;
+                    Plugin.Logger.Log("Started camera panning");
+                }
+                else
+                {
+                    // Continue panning
+                    Vector3 currentMousePosition = Input.mousePosition;
+                    Vector3 mouseDelta = currentMousePosition - lastPanMousePosition;
+
+                    if (mouseDelta.magnitude > 0.1f) // Only pan if there's meaningful movement
+                    {
+                        // Convert mouse delta to world space movement
+                        Camera camera = gameCamera.Camera;
+
+                        // Calculate world space movement based on current zoom level
+                        float worldUnitsPerPixel = camera.orthographicSize * 2f / Screen.height;
+                        Vector3 worldDelta = new Vector3(-mouseDelta.x * worldUnitsPerPixel * panSensitivity,
+                                                        -mouseDelta.y * worldUnitsPerPixel * panSensitivity,
+                                                        0);
+
+                        // Apply the movement to camera
+                        Vector3 currentCameraPos = gameCamera.transform.position;
+                        Vector3 targetCameraPos = currentCameraPos + worldDelta;
+
+                        Plugin.Logger.Log($"Panning camera from {currentCameraPos} to {targetCameraPos} (delta: {worldDelta})");
+
+                        // Move camera immediately for responsive panning
+                        gameCamera.MoveCameraToPosition(targetCameraPos, 0f);
+
+                        // Set camera mode for panning
+                        gameCamera.SetCameraMode(CameraMode.BorderMove);
+                    }
+
+                    lastPanMousePosition = currentMousePosition;
+                }
+            }
+            else
+            {
+                if (isPanning)
+                {
+                    // Stop panning
+                    isPanning = false;
+                    Plugin.Logger.Log("Stopped camera panning");
                 }
             }
         }
