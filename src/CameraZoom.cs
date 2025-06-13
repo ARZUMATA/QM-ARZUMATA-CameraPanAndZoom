@@ -21,13 +21,19 @@ namespace QM_CameraZoomTweaker
         // GameCamera
         private static int _lastZoom = -1;
         private static bool cameraNeedMoving;
-        private static bool cameraZoomIn;
+        private static bool cooldownInProgress;
         private static CellPosition cellPosition;
         private static Vector3 mouseWorldPosBefore;
         private static Vector3 mouseWorldPosAfter;
 
         private static float lastZoomTime = 0f;
-        private static float zoomCooldown = 0.150f; // Minimum time between zoom operations (ms)
+        private static float zoomCooldown = 0.50f; // Minimum time between zoom operations (ms)
+
+        private static Vector3 storedCameraPosition;
+        private static float lastCameraPositionChangeTime = 0f;
+        private static float cameraStoppedThreshold = 0.1f; // 100ms - time to wait if camera position doesn't change
+        private static float cameraPositionTolerance = 0.01f; // Small tolerance for position comparison
+        private static float cameraMoveSpeed = 0f; // Speed of camera movement (0.25f is default)
 
         [Hook(ModHookType.MainMenuStarted)]
         public static void MainMenuStarted(IModContext context)
@@ -62,7 +68,7 @@ namespace QM_CameraZoomTweaker
             [HarmonyPrefix]
             public static bool Prefix()
             {
-                if (cameraNeedMoving)
+                if (cameraNeedMoving || cooldownInProgress)
                 {
                     return false; // While we are handling camera movement, ignore the original method.
                 }
@@ -75,9 +81,8 @@ namespace QM_CameraZoomTweaker
                     // Convert mouse screen position to world coordinates at current zoom level
                     Camera camera = dungeonGameMode._camera.Camera;
                     mouseWorldPosBefore = camera.ScreenToWorldPoint(new Vector3(mouseScreenPos.x, mouseScreenPos.y, camera.nearClipPlane));
-                    Plugin.Logger.Log($"ZoomIn_Patch - Mouse world pos before zoom: {mouseWorldPosBefore}");
                     cameraNeedMoving = true;
-                    cameraZoomIn = true;
+                    cooldownInProgress = true;
                     lastZoomTime = Time.time;
                 }
 
@@ -97,7 +102,7 @@ namespace QM_CameraZoomTweaker
             [HarmonyPrefix]
             public static bool Prefix()
             {
-                if (cameraNeedMoving)
+                if (cameraNeedMoving || cooldownInProgress)
                 {
                     return false; // While we are handling camera movement, ignore the original method.
                 }
@@ -110,9 +115,8 @@ namespace QM_CameraZoomTweaker
                     // Convert mouse screen position to world coordinates at current zoom level
                     Camera camera = dungeonGameMode._camera.Camera;
                     mouseWorldPosBefore = camera.ScreenToWorldPoint(new Vector3(mouseScreenPos.x, mouseScreenPos.y, camera.nearClipPlane));
-                    Plugin.Logger.Log($"ZoomOut_Patch - Mouse world pos before zoom: {mouseWorldPosBefore}");
                     cameraNeedMoving = true;
-                    cameraZoomIn = false;
+                    cooldownInProgress = true;
                     lastZoomTime = Time.time;
                 }
 
@@ -347,70 +351,57 @@ namespace QM_CameraZoomTweaker
         {
             if (cameraNeedMoving && dungeonGameMode != null)
             {
-                Plugin.Logger.Log("ZoomIn_Patch Postfix");
+                var gameCamera = dungeonGameMode._camera;
+                Camera camera = gameCamera.Camera;
 
-                if (cameraZoomIn)
+                // Store current camera position before moving
+                Vector3 currentCameraPos = gameCamera.transform.position;
+                storedCameraPosition = currentCameraPos;
+                lastCameraPositionChangeTime = Time.time;
+
+                // Get mouse position in world coordinates after zoom
+                Vector3 mouseScreenPos = Input.mousePosition;
+                mouseWorldPosAfter = camera.ScreenToWorldPoint(new Vector3(mouseScreenPos.x, mouseScreenPos.y, camera.nearClipPlane));
+
+                // Calculate the difference - this is how much the world point under cursor has shifted
+                Vector3 worldShift = mouseWorldPosAfter - mouseWorldPosBefore;
+
+                // Move camera by the opposite of this shift to keep the same world point under cursor
+                Vector3 targetCameraPos = currentCameraPos - worldShift;
+
+                // Move camera to compensate for the zoom shift
+                gameCamera.MoveCameraToPosition(targetCameraPos, cameraMoveSpeed); // Small duration for smooth transition
+
+                // Set camera mode if needed
+                gameCamera.SetCameraMode(CameraMode.BorderMove);
+            }
+
+            if (cooldownInProgress)
+            {
+                // Check current camera position after movement command
+                Vector3 currentPos = dungeonGameMode._camera.transform.position;
+
+                // Check if camera position has changed since last frame
+                if (Vector3.Distance(currentPos, storedCameraPosition) > cameraPositionTolerance)
                 {
-                    var gameCamera = dungeonGameMode._camera;
-                    Camera camera = gameCamera.Camera;
-
-                    // Get mouse position in world coordinates after zoom
-                    Vector3 mouseScreenPos = Input.mousePosition;
-                    mouseWorldPosAfter = camera.ScreenToWorldPoint(new Vector3(mouseScreenPos.x, mouseScreenPos.y, camera.nearClipPlane));
-
-                    Plugin.Logger.Log($"ZoomIn_Patch - Mouse world pos after zoom: {mouseWorldPosAfter}");
-
-                    // Calculate the difference - this is how much the world point under cursor has shifted
-                    Vector3 worldShift = mouseWorldPosAfter - mouseWorldPosBefore;
-                    Plugin.Logger.Log($"ZoomIn_Patch - World shift: {worldShift}");
-
-                    // Move camera by the opposite of this shift to keep the same world point under cursor
-                    Vector3 currentCameraPos = gameCamera.transform.position;
-                    Vector3 targetCameraPos = currentCameraPos - worldShift;
-
-                    Plugin.Logger.Log($"ZoomIn_Patch - Moving camera from {currentCameraPos} to {targetCameraPos}");
-
-                    // Move camera to compensate for the zoom shift
-                    gameCamera.MoveCameraToPosition(targetCameraPos, 0f); // Small duration for smooth transition
-
-                    // Set camera mode if needed
-                    gameCamera.SetCameraMode(CameraMode.BorderMove);
+                    // Camera is still moving, update stored position and time
+                    storedCameraPosition = currentPos;
+                    lastCameraPositionChangeTime = Time.time;
+                    Plugin.Logger.Log($"Camera still moving - Current pos: {currentPos}");
                 }
                 else
                 {
-
-                    Plugin.Logger.Log("ZoomOut_Patch Postfix");
-
-                    var gameCamera = dungeonGameMode._camera;
-                    Camera camera = gameCamera.Camera;
-                    
-                    // Get mouse position in world coordinates after zoom
-                    Vector3 mouseScreenPos = Input.mousePosition;
-                    mouseWorldPosAfter = camera.ScreenToWorldPoint(new Vector3(mouseScreenPos.x, mouseScreenPos.y, camera.nearClipPlane));
-                    
-                    Plugin.Logger.Log($"ZoomOut_Patch - Mouse world pos after zoom: {mouseWorldPosAfter}");
-                    
-                    // Calculate the difference - this is how much the world point under cursor has shifted
-                    Vector3 worldShift = mouseWorldPosAfter - mouseWorldPosBefore;
-                    Plugin.Logger.Log($"ZoomOut_Patch - World shift: {worldShift}");
-                    
-                    // Move camera by the opposite of this shift to keep the same world point under cursor
-                    Vector3 currentCameraPos = gameCamera.transform.position;
-                    Vector3 targetCameraPos = currentCameraPos - worldShift;
-                    
-                    Plugin.Logger.Log($"ZoomOut_Patch - Moving camera from {currentCameraPos} to {targetCameraPos}");
-                    
-                    // Move camera to compensate for the zoom shift
-                    gameCamera.MoveCameraToPosition(targetCameraPos, 0f); // Small duration for smooth transition
-                    
-                    // Set camera mode if needed
-                    gameCamera.SetCameraMode(CameraMode.BorderMove);
+                    Plugin.Logger.Log($"Camera not moving - Current pos: {currentPos}");
                 }
 
-                // Block the zoom operation unless colldown is over
-                if (Time.time - lastZoomTime > zoomCooldown)
+                // Check if we can stop camera movement handling
+                bool cooldownComplete = Time.time - lastZoomTime > zoomCooldown;
+                bool cameraStoppedMoving = Time.time - lastCameraPositionChangeTime > cameraStoppedThreshold;
+
+                if (cooldownComplete && cameraStoppedMoving)
                 {
-                    cameraNeedMoving = false;
+                    Plugin.Logger.Log($"Camera movement complete - Cooldown: {cooldownComplete}, Camera stopped: {cameraStoppedMoving}");
+                    cooldownInProgress = false;
                 }
             }
         }
