@@ -40,6 +40,9 @@ namespace QM_CameraZoomTweaker
         [JsonIgnore]
         public float PanSensitivity { get; set; } = 1;
 
+        [JsonIgnore]
+        public int PanButton { get; set; } = 3;
+
         // MCM Related Start
         //[JsonIgnore]
         //public Color IndicatorBackgroundColor { get; set; } = Helpers.HexStringToUnityColor("#4B1416");

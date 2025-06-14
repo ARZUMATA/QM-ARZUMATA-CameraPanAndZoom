@@ -519,7 +519,6 @@ namespace QM_CameraZoomTweaker
             }
         }
 
-
         private static void StartSmoothZoom()
         {
             if (dungeonGameMode == null) return;
@@ -554,10 +553,8 @@ namespace QM_CameraZoomTweaker
             var gameCamera = dungeonGameMode._camera;
             if (gameCamera == null) return;
 
-            // Check for pan input (Middle mouse button, Mouse button 4, or Mouse button 5)
-            bool panInputPressed = Input.GetMouseButton(2) || // Middle mouse button
-                                  Input.GetMouseButton(3) || // Mouse button 4 (back)
-                                  Input.GetMouseButton(4);   // Mouse button 5 (forward)
+            // Check for pan input based on config setting
+            bool panInputPressed = IsPanButtonPressed();
 
             if (panInputPressed)
             {
@@ -651,5 +648,45 @@ namespace QM_CameraZoomTweaker
 
             return new Vector3(worldX, worldY, camera.nearClipPlane);
         }
+
+        private static bool IsPanButtonPressed()
+        {
+            // Check each Unity mouse button (0-4) to see if it's pressed
+            for (int unityButton = 0; unityButton <= 4; unityButton++)
+            {
+                if (Input.GetMouseButton(unityButton))
+                {
+                    // Convert Unity button index to Mod enum value (add 1)
+                    MouseButtonsMod modButton = (MouseButtonsMod)(unityButton + 1);
+
+                    // Compare with config setting
+                    if ((int)modButton == Plugin.Config.PanButton)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
     }
+
+    public enum MouseButtonsUnity
+    {
+        Left,
+        Right,
+        Middle,
+        Back,
+        Forward
+    }
+
+    public enum MouseButtonsMod
+    {
+        Left = 1,
+        Right,
+        Middle,
+        Back,
+        Forward
+    }
+
 }
