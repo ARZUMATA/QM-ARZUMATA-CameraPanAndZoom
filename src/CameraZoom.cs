@@ -419,16 +419,17 @@ namespace QM_CameraZoomTweaker
                     ppuMin = Plugin.Config.ZoomMin;
                     ppuMax = Plugin.Config.ZoomMax;
 
+                    dungeonGameMode = GameObject.FindObjectOfType<DungeonGameMode>(true);
+                    gameCamera = dungeonGameMode._camera;
+                    camera = dungeonGameMode._camera.GetComponent<Camera>();
+
                     if (alternativeMode)
                     {
                         Plugin.Logger.Log($"Using alternative zoom");
                         isInitialized = true;
                         return;
                     }
-
-                    dungeonGameMode = GameObject.FindObjectOfType<DungeonGameMode>(true);
-                    gameCamera = dungeonGameMode._camera;
-                    camera = dungeonGameMode._camera.GetComponent<Camera>();
+                
                     //var gameCamera = GameObject.FindObjectOfType<GameCamera>();
 
                     if (gameCamera != null)
