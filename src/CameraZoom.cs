@@ -44,11 +44,13 @@ namespace QM_CameraZoomTweaker
         private static float panSensitivity = 1.0f; // // Adjustable pan sensitivity multiplier (1.0 = normal, 2.0 = double speed, 0.5 = half speed)
 
         private static bool isZooming = false;
+        private static bool alternativeMode = false;
         private static float zoomStartTime = 0f;
         private static int oldZoomIndex = -1;
         private static int newZoomIndex = -1;
         private static float oldPPU = 0f;
         private static float newPPU = 0f;
+        private static int ppuStep = 6;
         private static float zoomDuration = 0.05f; // Duration of zoom animation in seconds
 
         [Hook(ModHookType.MainMenuStarted)]
@@ -90,6 +92,15 @@ namespace QM_CameraZoomTweaker
                     return true;
                 }
 
+                if (alternativeMode)
+                {
+                    oldPPU = dungeonGameMode.GameCamera._pixelPerfectCamera.assetsPPU;
+                    newPPU = dungeonGameMode.GameCamera._pixelPerfectCamera.assetsPPU += ppuStep;
+                    cameraNeedMoving = true;
+                    lastZoomTime = Time.time;
+                    return false;
+                }
+
                 if (cameraNeedMoving || cooldownInProgress || isZooming)
                 {
                     return false; // While we are handling camera movement or zooming, ignore the original method.
@@ -115,7 +126,7 @@ namespace QM_CameraZoomTweaker
                     mouseWorldPosBefore = camera.ScreenToWorldPoint(new Vector3(mouseScreenPos.x, mouseScreenPos.y, camera.nearClipPlane));
 
                     // Predict where mouse will be after zoom
-                    mouseWorldPosAfter = PredictMouseWorldPositionAfterZoom(newZoomIndex);
+                    mouseWorldPosAfter = PredictMouseWorldPositionAfterZoom(dungeonGameMode.GameCamera._zoomLevels[newZoomIndex]);
 
                     cameraNeedMoving = true;
                     lastZoomTime = Time.time;
@@ -138,6 +149,15 @@ namespace QM_CameraZoomTweaker
                 if (!modZoomTweakEnabled)
                 {
                     return true;
+                }
+
+                if (alternativeMode)
+                {
+                    oldPPU = dungeonGameMode.GameCamera._pixelPerfectCamera.assetsPPU;
+                    newPPU = dungeonGameMode.GameCamera._pixelPerfectCamera.assetsPPU -= ppuStep;
+                    cameraNeedMoving = true;
+                    lastZoomTime = Time.time;
+                    return false;
                 }
 
                 if (cameraNeedMoving || cooldownInProgress || isZooming)
@@ -165,7 +185,7 @@ namespace QM_CameraZoomTweaker
                     mouseWorldPosBefore = camera.ScreenToWorldPoint(new Vector3(mouseScreenPos.x, mouseScreenPos.y, camera.nearClipPlane));
 
                     // Predict where mouse will be after zoom
-                    mouseWorldPosAfter = PredictMouseWorldPositionAfterZoom(newZoomIndex);
+                    mouseWorldPosAfter = PredictMouseWorldPositionAfterZoom(dungeonGameMode.GameCamera._zoomLevels[newZoomIndex]);
 
                     cameraNeedMoving = true;
                     lastZoomTime = Time.time;
@@ -206,7 +226,11 @@ namespace QM_CameraZoomTweaker
             }
 
             HandleCameraMovement();
+            Initialize();
+        }
 
+        private static void Initialize()
+        {
             if (!isInitialized)
             {
                 try
@@ -214,6 +238,14 @@ namespace QM_CameraZoomTweaker
                     cameraMoveSpeed = Plugin.Config.CameraMoveDuration / 100f;
                     panSensitivity = Plugin.Config.PanSensitivity;
                     zoomDuration = Plugin.Config.ZoomDuration / 100f;
+                    alternativeMode = Plugin.Config.ZoomAlternativeMode;
+
+                    if (alternativeMode)
+                    {
+                        Plugin.Logger.Log($"Using alternative zoom");
+                        isInitialized = true;
+                        return;
+                    }
 
                     dungeonGameMode = GameObject.FindObjectOfType<DungeonGameMode>(true);
                     var gameCamera = dungeonGameMode._camera;
@@ -460,7 +492,7 @@ namespace QM_CameraZoomTweaker
                 lastCameraPositionChangeTime = Time.time;
 
                 // Predict mouse world position after zoom instead of calculating it after
-                mouseWorldPosAfter = PredictMouseWorldPositionAfterZoom(gameCamera._currentZoomIndex);
+                mouseWorldPosAfter = PredictMouseWorldPositionAfterZoom(gameCamera._zoomLevels[gameCamera._currentZoomIndex]);
 
                 // Calculate the difference - this is how much the world point under cursor will shift
                 Vector3 worldShift = mouseWorldPosAfter - mouseWorldPosBefore;
@@ -610,7 +642,7 @@ namespace QM_CameraZoomTweaker
         }
 
 
-        private static Vector3 PredictMouseWorldPositionAfterZoom(int newZoomIndex)
+        private static Vector3 PredictMouseWorldPositionAfterZoom(float _newPPU)
         {
             if (dungeonGameMode == null) return Vector3.zero;
 
@@ -622,7 +654,7 @@ namespace QM_CameraZoomTweaker
 
             // Get current and new PPU values
             float currentPPU = gameCamera._pixelPerfectCamera.assetsPPU;
-            float newPPU = gameCamera._zoomLevels[newZoomIndex];
+            float newPPU = _newPPU;
 
             // Calculate the scale factor between old and new zoom
             float zoomScaleFactor = currentPPU / newPPU;
