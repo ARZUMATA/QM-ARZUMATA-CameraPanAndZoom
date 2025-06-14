@@ -245,9 +245,9 @@ namespace QM_CameraZoomTweaker
                             newArray[i] = Math.Max((int)ppuMin, newValue);
                         }
 
-                        for (int i = 0; i < gameCamera._zoomLevels.Length; i++)
+                        for (int i = 0; i < newArray.Length; i++)
                         {
-                            Plugin.Logger.Log($"newArray zoomLevels level {gameCamera._zoomLevels[i]}");
+                            Plugin.Logger.Log($"newArray zoomLevels level {newArray[i]}");
                         }
 
                         //// Zoom In
