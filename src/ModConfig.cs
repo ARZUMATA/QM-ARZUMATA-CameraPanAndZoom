@@ -20,13 +20,25 @@ namespace QM_CameraZoomTweaker
         public bool DebugLog { get; set; } = false;
 
         [JsonIgnore]
-        public bool ModEnabled { get; set; } = true;
+        public bool ModZoomTweakEnabled { get; set; } = true;
+
+        [JsonIgnore]
+        public bool ModPanningEnabled { get; set; } = true;
 
         [JsonIgnore]
         public int ZoomInSteps { get; set; } = 5;
 
         [JsonIgnore]
         public int ZoomOutSteps { get; set; } = 5;
+
+        [JsonIgnore]
+        public int ZoomDuration { get; set; } = 25;
+
+        [JsonIgnore]
+        public int CameraMoveDuration { get; set; } = 25;
+        
+        [JsonIgnore]
+        public float PanSensitivity { get; set; } = 1;
 
         // MCM Related Start
         //[JsonIgnore]

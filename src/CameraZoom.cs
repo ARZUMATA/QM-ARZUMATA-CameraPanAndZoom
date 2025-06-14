@@ -16,7 +16,10 @@ namespace QM_CameraZoomTweaker
     internal class CameraZoom
     {
         private static bool isInitialized = false;
-        private static bool enabled = false;
+        //private static bool enabled = false;
+        private static bool modZoomTweakEnabled = false;
+        private static bool modPanningEnabled = false;
+
         private static int[] newZoomArray;
         private static DungeonGameMode dungeonGameMode = null;
         // GameCamera
@@ -38,7 +41,7 @@ namespace QM_CameraZoomTweaker
 
         private static bool isPanning = false;
         private static Vector3 lastPanMousePosition;
-        private static float panSensitivity = 1.0f; // Adjust this value to control pan speed
+        private static float panSensitivity = 1.0f; // // Adjustable pan sensitivity multiplier (1.0 = normal, 2.0 = double speed, 0.5 = half speed)
 
         private static bool isZooming = false;
         private static float zoomStartTime = 0f;
@@ -69,7 +72,8 @@ namespace QM_CameraZoomTweaker
         [Hook(ModHookType.DungeonFinished)]
         public static void DungeonFinished(IModContext context)
         {
-            enabled = false;
+            modZoomTweakEnabled = false;
+            modPanningEnabled = false;
             isInitialized = false;
             dungeonGameMode = null;
             GameCamera._lastZoom = -1; // We need to reset last zoom as new camera will not have our new array.
@@ -81,6 +85,11 @@ namespace QM_CameraZoomTweaker
             [HarmonyPrefix]
             public static bool Prefix()
             {
+                if (!modZoomTweakEnabled)
+                {
+                    return true;
+                }
+
                 if (cameraNeedMoving || cooldownInProgress || isZooming)
                 {
                     return false; // While we are handling camera movement or zooming, ignore the original method.
@@ -98,7 +107,7 @@ namespace QM_CameraZoomTweaker
                     // Get mouse position in screen coordinates at current zoom level
                     Vector3 mouseScreenPos = Input.mousePosition;
 
-                     // Get current PPU as old value
+                    // Get current PPU as old value
                     oldPPU = dungeonGameMode.GameCamera._pixelPerfectCamera.assetsPPU;
 
                     // Convert mouse screen position to world coordinates at current zoom level
@@ -126,6 +135,11 @@ namespace QM_CameraZoomTweaker
             [HarmonyPrefix]
             public static bool Prefix()
             {
+                if (!modZoomTweakEnabled)
+                {
+                    return true;
+                }
+
                 if (cameraNeedMoving || cooldownInProgress || isZooming)
                 {
                     return false;
@@ -168,8 +182,18 @@ namespace QM_CameraZoomTweaker
         [Hook(ModHookType.DungeonUpdateBeforeGameLoop)]
         public static void DungeonUpdateBeforeGameLoop(IModContext context)
         {
-            enabled = Plugin.Config.ModEnabled;
+            modZoomTweakEnabled = Plugin.Config.ModZoomTweakEnabled;
+            modPanningEnabled = Plugin.Config.ModPanningEnabled;
 
+            if (modPanningEnabled)
+            {
+                HandleCameraPanning();
+            }
+
+            if (!modZoomTweakEnabled)
+            {
+                return;
+            }
             if (_lastZoom != GameCamera._lastZoom)
             {
                 if (_lastZoom > GameCamera._lastZoom)
@@ -181,13 +205,16 @@ namespace QM_CameraZoomTweaker
                 _lastZoom = GameCamera._lastZoom;
             }
 
-            HandleCameraPanning();
             HandleCameraMovement();
 
             if (!isInitialized)
             {
                 try
                 {
+                    cameraMoveSpeed = Plugin.Config.CameraMoveDuration / 100f;
+                    panSensitivity = Plugin.Config.PanSensitivity;
+                    zoomDuration = Plugin.Config.ZoomDuration / 100f;
+
                     dungeonGameMode = GameObject.FindObjectOfType<DungeonGameMode>(true);
                     var gameCamera = dungeonGameMode._camera;
                     var camera = dungeonGameMode._camera.GetComponent<Camera>();
@@ -562,7 +589,7 @@ namespace QM_CameraZoomTweaker
                         Vector3 currentCameraPos = gameCamera.transform.position;
                         Vector3 targetCameraPos = currentCameraPos + worldDelta;
 
-                        Plugin.Logger.Log($"Panning camera from {currentCameraPos} to {targetCameraPos} (delta: {worldDelta})");
+                        Plugin.Logger.Log($"Panning camera from {currentCameraPos} to {targetCameraPos} (delta: {worldDelta}, sensitivity: {panSensitivity})");
 
                         // Move camera immediately for responsive panning
                         gameCamera.MoveCameraToPosition(targetCameraPos, 0f);
