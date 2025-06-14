@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using MGSC;
 using System;
 using System.Data.SqlTypes;
@@ -34,11 +34,19 @@ namespace QM_CameraZoomTweaker
         private static float lastCameraPositionChangeTime = 0f;
         private static float cameraStoppedThreshold = 0.1f; // 100ms - time to wait if camera position doesn't change
         private static float cameraPositionTolerance = 0.01f; // Small tolerance for position comparison
-        private static float cameraMoveSpeed = 0f; // Speed of camera movement (0.25f is default)
+        private static float cameraMoveSpeed = 0.3f; // Speed of camera movement (0.25f is default)
 
         private static bool isPanning = false;
         private static Vector3 lastPanMousePosition;
         private static float panSensitivity = 1.0f; // Adjust this value to control pan speed
+
+        private static bool isZooming = false;
+        private static float zoomStartTime = 0f;
+        private static int oldZoomIndex = -1;
+        private static int newZoomIndex = -1;
+        private static float oldPPU = 0f;
+        private static float newPPU = 0f;
+        private static float zoomDuration = 0.3f; // Duration of zoom animation in seconds
 
         [Hook(ModHookType.MainMenuStarted)]
         public static void MainMenuStarted(IModContext context)
@@ -73,9 +81,9 @@ namespace QM_CameraZoomTweaker
             [HarmonyPrefix]
             public static bool Prefix()
             {
-                if (cameraNeedMoving || cooldownInProgress)
+                if (cameraNeedMoving || cooldownInProgress || isZooming)
                 {
-                    return false; // While we are handling camera movement, ignore the original method.
+                    return false; // While we are handling camera movement or zooming, ignore the original method.
                 }
 
                 if (dungeonGameMode != null)
@@ -83,11 +91,26 @@ namespace QM_CameraZoomTweaker
                     // Get mouse position in screen coordinates
                     Vector3 mouseScreenPos = Input.mousePosition;
 
+                    // Get current PPU as old value
+                    oldPPU = dungeonGameMode.GameCamera._pixelPerfectCamera.assetsPPU;
+
                     // Convert mouse screen position to world coordinates at current zoom level
                     Camera camera = dungeonGameMode._camera.Camera;
                     mouseWorldPosBefore = camera.ScreenToWorldPoint(new Vector3(mouseScreenPos.x, mouseScreenPos.y, camera.nearClipPlane));
                     cameraNeedMoving = true;
                     lastZoomTime = Time.time;
+
+                    // Original game code that we copy
+                    dungeonGameMode.GameCamera._currentZoomIndex--;
+                    if (dungeonGameMode.GameCamera._currentZoomIndex < 0)
+                    {
+                        dungeonGameMode.GameCamera._currentZoomIndex = 0;
+                    }
+
+                    // We remove this line - let smooth zoom handle it:
+                    // dungeonGameMode.GameCamera._pixelPerfectCamera.assetsPPU = dungeonGameMode.GameCamera._zoomLevels[dungeonGameMode.GameCamera._currentZoomIndex];
+
+                    GameCamera._lastZoom = dungeonGameMode.GameCamera._currentZoomIndex;
                 }
 
                 return true;
@@ -100,9 +123,9 @@ namespace QM_CameraZoomTweaker
             [HarmonyPrefix]
             public static bool Prefix()
             {
-                if (cameraNeedMoving || cooldownInProgress)
+                if (cameraNeedMoving || cooldownInProgress || isZooming)
                 {
-                    return false; // While we are handling camera movement, ignore the original method.
+                    return false; // While we are handling camera movement or zooming, ignore the original method.
                 }
 
                 if (dungeonGameMode != null)
@@ -110,11 +133,25 @@ namespace QM_CameraZoomTweaker
                     // Get mouse position in screen coordinates
                     Vector3 mouseScreenPos = Input.mousePosition;
 
+                    // Get current PPU as old value
+                    oldPPU = dungeonGameMode.GameCamera._pixelPerfectCamera.assetsPPU;
+
                     // Convert mouse screen position to world coordinates at current zoom level
                     Camera camera = dungeonGameMode._camera.Camera;
                     mouseWorldPosBefore = camera.ScreenToWorldPoint(new Vector3(mouseScreenPos.x, mouseScreenPos.y, camera.nearClipPlane));
                     cameraNeedMoving = true;
                     lastZoomTime = Time.time;
+
+                    // Original game code that we copy
+                    dungeonGameMode.GameCamera._currentZoomIndex++;
+                    if (dungeonGameMode.GameCamera._currentZoomIndex >= dungeonGameMode.GameCamera._zoomLevels.Length)
+                    {
+                        dungeonGameMode.GameCamera._currentZoomIndex = dungeonGameMode.GameCamera._zoomLevels.Length - 1;
+                    }
+                    // We remove this line - let smooth zoom handle it:
+                    // dungeonGameMode.GameCamera._pixelPerfectCamera.assetsPPU = dungeonGameMode.GameCamera._zoomLevels[dungeonGameMode.GameCamera._currentZoomIndex];
+                    GameCamera._lastZoom = dungeonGameMode.GameCamera._currentZoomIndex;
+
                 }
 
                 return true;
@@ -352,6 +389,34 @@ namespace QM_CameraZoomTweaker
                 return;
             }
 
+            // Handle smooth zooming
+            if (isZooming && dungeonGameMode != null)
+            {
+                var gameCamera = dungeonGameMode._camera;
+                float elapsedTime = Time.time - zoomStartTime;
+                float progress = Mathf.Clamp01(elapsedTime / zoomDuration);
+
+                // Use smooth curve for zoom transition
+                float smoothProgress = Mathf.SmoothStep(0f, 1f, progress);
+
+                // Interpolate PPU value
+                float currentPPU = Mathf.Lerp(oldPPU, newPPU, smoothProgress);
+                gameCamera._pixelPerfectCamera.assetsPPU = (int)currentPPU;
+
+                // Check if zoom animation is complete
+                if (progress >= 1f)
+                {
+                    // Ensure final PPU is exactly the target value
+                    gameCamera._pixelPerfectCamera.assetsPPU = (int)newPPU;
+                    isZooming = false;
+                    Plugin.Logger.Log($"Smooth zoom complete: {oldPPU} -> {newPPU}");
+                }
+
+                Plugin.Logger.Log($"Smooth zoom nit complete: {oldPPU} -> {newPPU}");
+
+                return; // Don't process camera movement while zooming
+            }
+
             if (cameraNeedMoving && dungeonGameMode != null)
             {
                 var gameCamera = dungeonGameMode._camera;
@@ -373,12 +438,15 @@ namespace QM_CameraZoomTweaker
                 Vector3 targetCameraPos = currentCameraPos - worldShift;
 
                 // Move camera to compensate for the zoom shift
-                gameCamera.MoveCameraToPosition(targetCameraPos, cameraMoveSpeed); // Small duration for smooth transition
+                gameCamera.MoveCameraToPosition(targetCameraPos, cameraMoveSpeed);
 
                 // Set camera mode if needed
                 gameCamera.SetCameraMode(CameraMode.BorderMove);
                 cameraNeedMoving = false;
                 cooldownInProgress = true;
+
+                // Start smooth zoom transition
+                StartSmoothZoom();
             }
 
             if (cooldownInProgress)
@@ -402,12 +470,41 @@ namespace QM_CameraZoomTweaker
                 // Check if we can stop camera movement handling
                 bool cooldownComplete = Time.time - lastZoomTime > zoomCooldown;
                 bool cameraStoppedMoving = Time.time - lastCameraPositionChangeTime > cameraStoppedThreshold;
+                bool zoomComplete = !isZooming; // Also wait for zoom to complete
 
-                if (cooldownComplete && cameraStoppedMoving)
+                if (cooldownComplete && cameraStoppedMoving && zoomComplete)
                 {
-                    Plugin.Logger.Log($"Camera movement complete - Cooldown: {cooldownComplete}, Camera stopped: {cameraStoppedMoving}");
+                    Plugin.Logger.Log($"Camera movement complete - Cooldown: {cooldownComplete}, Camera stopped: {cameraStoppedMoving}, Zoom complete: {zoomComplete}");
                     cooldownInProgress = false;
                 }
+            }
+        }
+
+
+        private static void StartSmoothZoom()
+        {
+            if (dungeonGameMode == null) return;
+
+            var gameCamera = dungeonGameMode._camera;
+
+            // Get new PPU from zoom levels array
+            newZoomIndex = gameCamera._currentZoomIndex;
+            newPPU = gameCamera._zoomLevels[newZoomIndex];
+
+            // Only start smooth zoom if there's a difference
+            if (Mathf.Abs(oldPPU - newPPU) > 0.1f)
+            {
+                isZooming = true;
+                zoomStartTime = Time.time;
+
+                Plugin.Logger.Log($"Starting smooth zoom: {oldPPU} -> {newPPU} (index: {newZoomIndex})");
+            }
+            else
+            {
+                // No significant change, just set the value directly
+                gameCamera._pixelPerfectCamera.assetsPPU = (int)newPPU;
+
+                Plugin.Logger.Log($"Starting smooth zoom: No significant change, setting the value directly {oldPPU} -> {newPPU}");
             }
         }
 
