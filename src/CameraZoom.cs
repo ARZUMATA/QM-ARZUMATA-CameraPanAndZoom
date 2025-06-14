@@ -115,29 +115,35 @@ namespace QM_CameraZoomTweaker
                         newZoomIndex = 0;
                     }
 
-                    // Get mouse position in screen coordinates at current zoom level
-                    Vector3 mouseScreenPos = Input.mousePosition;
-
-                    // Get current PPU as old value
-                    oldPPU = dungeonGameMode.GameCamera._pixelPerfectCamera.assetsPPU;
-
-                    // Convert mouse screen position to world coordinates at current zoom level
-                    Camera camera = dungeonGameMode._camera.Camera;
-                    mouseWorldPosBefore = camera.ScreenToWorldPoint(new Vector3(mouseScreenPos.x, mouseScreenPos.y, camera.nearClipPlane));
-
-                    // Predict where mouse will be after zoom
-                    mouseWorldPosAfter = PredictMouseWorldPositionAfterZoom(dungeonGameMode.GameCamera._zoomLevels[newZoomIndex]);
-
-                    cameraNeedMoving = true;
-                    lastZoomTime = Time.time;
-
-                    // Apply zoom index change
-                    dungeonGameMode.GameCamera._currentZoomIndex = newZoomIndex;
-                    GameCamera._lastZoom = dungeonGameMode.GameCamera._currentZoomIndex;
+                    ApplyNewZoomIndex(newZoomIndex);
                 }
 
                 return false;
             }
+
+        }
+
+        private static void ApplyNewZoomIndex(int newZoomIndex)
+        {
+            // Get mouse position in screen coordinates at current zoom level
+            Vector3 mouseScreenPos = Input.mousePosition;
+
+            // Get current PPU as old value
+            oldPPU = dungeonGameMode.GameCamera._pixelPerfectCamera.assetsPPU;
+
+            // Convert mouse screen position to world coordinates at current zoom level
+            Camera camera = dungeonGameMode._camera.Camera;
+            mouseWorldPosBefore = camera.ScreenToWorldPoint(new Vector3(mouseScreenPos.x, mouseScreenPos.y, camera.nearClipPlane));
+
+            // Predict where mouse will be after zoom
+            mouseWorldPosAfter = PredictMouseWorldPositionAfterZoom(dungeonGameMode.GameCamera._zoomLevels[newZoomIndex]);
+
+            cameraNeedMoving = true;
+            lastZoomTime = Time.time;
+
+            // Apply zoom index change
+            dungeonGameMode.GameCamera._currentZoomIndex = newZoomIndex;
+            GameCamera._lastZoom = dungeonGameMode.GameCamera._currentZoomIndex;
         }
 
         [HarmonyPatch(typeof(GameCamera), "ZoomOut")]
@@ -174,25 +180,7 @@ namespace QM_CameraZoomTweaker
                         newZoomIndex = dungeonGameMode.GameCamera._zoomLevels.Length - 1;
                     }
 
-                    // Get mouse position in screen coordinates at current zoom level
-                    Vector3 mouseScreenPos = Input.mousePosition;
-
-                    // Get current PPU as old value
-                    oldPPU = dungeonGameMode.GameCamera._pixelPerfectCamera.assetsPPU;
-
-                    // Convert mouse screen position to world coordinates at current zoom level
-                    Camera camera = dungeonGameMode._camera.Camera;
-                    mouseWorldPosBefore = camera.ScreenToWorldPoint(new Vector3(mouseScreenPos.x, mouseScreenPos.y, camera.nearClipPlane));
-
-                    // Predict where mouse will be after zoom
-                    mouseWorldPosAfter = PredictMouseWorldPositionAfterZoom(dungeonGameMode.GameCamera._zoomLevels[newZoomIndex]);
-
-                    cameraNeedMoving = true;
-                    lastZoomTime = Time.time;
-
-                    // Apply zoom index change
-                    dungeonGameMode.GameCamera._currentZoomIndex = newZoomIndex;
-                    GameCamera._lastZoom = dungeonGameMode.GameCamera._currentZoomIndex;
+                    ApplyNewZoomIndex(newZoomIndex);
                 }
 
                 return false;
