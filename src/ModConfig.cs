@@ -26,11 +26,20 @@ namespace QM_CameraZoomTweaker
         public bool ModPanningEnabled { get; set; } = true;
 
         [JsonIgnore]
+        public bool ZoomAlternativeMode { get; set; } = true;
+
+        [JsonIgnore]
         public int ZoomInSteps { get; set; } = 5;
 
         [JsonIgnore]
         public int ZoomOutSteps { get; set; } = 5;
 
+        [JsonIgnore]
+        public int ZoomMin { get; set; } = 5;
+
+        [JsonIgnore]
+        public int ZoomMax { get; set; } = 150;
+            
         [JsonIgnore]
         public int ZoomDuration { get; set; } = 25;
 

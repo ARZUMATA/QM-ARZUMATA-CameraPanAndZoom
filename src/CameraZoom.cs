@@ -57,6 +57,11 @@ namespace QM_CameraZoomTweaker
         private static int ppuStep = 6;
         private static float zoomDuration = 0.05f; // Duration of zoom animation in seconds
 
+        // ppuDefault must be default for new default zoom
+        private static int ppuDefault = 64;
+        private static float ppuMin = 5f;
+        private static float ppuMax = 400f;
+
         [Hook(ModHookType.MainMenuStarted)]
         public static void MainMenuStarted(IModContext context)
         {
@@ -265,11 +270,7 @@ namespace QM_CameraZoomTweaker
             var newArray = new int[Plugin.Config.ZoomOutSteps + Plugin.Config.ZoomInSteps + 1]; // 5 + 5 = 1 = 11
             Plugin.Logger.Log($"newArray with len: {newArray.Length}");
 
-            // ppu must be default for new default zoom
-            var ppu = 64;
-            var ppuMin = 5f;
-            var ppuMax = 400f;
-
+           
             // Find centralIndex and if length is even, subtract 1 to make it odd
             var centralIndex = newArray.Length / 2;
             if (centralIndex % 2 == 0)
@@ -277,12 +278,12 @@ namespace QM_CameraZoomTweaker
                 centralIndex -= 1;
             }
 
-            newArray[centralIndex] = ppu;
+            newArray[centralIndex] = ppuDefault;
             Plugin.Logger.Log($"centralIndex: {centralIndex}");
 
             // Zoom In - gradually increasing increments (bigger zoom = bigger increase)
             // Zoom In - with minimum step size to avoid slowdown in middle
-            var zoomInRange = ppuMax - ppu;
+            var zoomInRange = ppuMax - ppuDefault;
             var minStepSize = 4; // Minimum step to avoid slowdown
             for (int i = centralIndex - 1, step = 1; i >= 0; i--, step++)
             {
@@ -301,7 +302,7 @@ namespace QM_CameraZoomTweaker
 
             // Zoom Out - gradually decreasing decrements (making it smaller)
             // Zoom Out - with minimum step size to avoid slowdown in middle
-            var zoomOutRange = ppu - ppuMin;
+            var zoomOutRange = ppuDefault - ppuMin;
             for (int i = centralIndex + 1, step = 1; i < newArray.Length; i++, step++)
             {
                 var progressRatio = (float)step / Plugin.Config.ZoomOutSteps;
@@ -326,7 +327,7 @@ namespace QM_CameraZoomTweaker
             //int increment = 6;
             //int[] increments = { 2, 4, 6 };
             //int incrementIndex = 0;
-            //for (int i = centralIndex, value = ppu; i >= 0; i--)
+            //for (int i = centralIndex, value = ppuDefault; i >= 0; i--)
             //{
             //    newArray[i] = value;
             //    // value += increment;
@@ -343,7 +344,7 @@ namespace QM_CameraZoomTweaker
             //int decrement = 6;
             //int[] decrements = { 6, 4, 2 };
             //int decrementIndex = 0;
-            //for (int i = centralIndex, value = ppu; i < newArray.Length; i++)
+            //for (int i = centralIndex, value = ppuDefault; i < newArray.Length; i++)
             //{
             //    newArray[i] = value;
             //    value -= decrements[decrementIndex];
@@ -415,6 +416,8 @@ namespace QM_CameraZoomTweaker
                     panSensitivity = Plugin.Config.PanSensitivity;
                     zoomDuration = Plugin.Config.ZoomDuration / 100f;
                     alternativeMode = Plugin.Config.ZoomAlternativeMode;
+                    ppuMin = Plugin.Config.ZoomMin;
+                    ppuMax = Plugin.Config.ZoomMax;
 
                     if (alternativeMode)
                     {
