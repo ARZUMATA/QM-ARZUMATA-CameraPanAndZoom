@@ -195,10 +195,10 @@ namespace QM_CameraZoomTweaker
 
                         // ppu must be default for new default zoom
                         var ppu = 64;
-                        var ppuMin = 10f;
-                        var ppuMax = 150f;
+                        var ppuMin = 5f;
+                        var ppuMax = 400f;
 
-                        // Calculate 64 as percentage of max range: 64 is ~42.7% of 150, or ~54% of the range (10-150)
+                        // Find centralIndex and if length is even, subtract 1 to make it odd
                         var centralIndex = newArray.Length / 2;
                         if (centralIndex % 2 == 0)
                         {
