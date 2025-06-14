@@ -1,4 +1,4 @@
-using HarmonyLib;
+﻿using HarmonyLib;
 using MGSC;
 using System;
 using System.Data.SqlTypes;
@@ -28,13 +28,13 @@ namespace QM_CameraZoomTweaker
         private static Vector3 mouseWorldPosAfter;
 
         private static float lastZoomTime = 0f;
-        private static float zoomCooldown = 0.15f; // Minimum time between zoom operations (ms)
+        private static float zoomCooldown = 0.05f; // Minimum time between zoom operations (ms)
 
         private static Vector3 storedCameraPosition;
         private static float lastCameraPositionChangeTime = 0f;
         private static float cameraStoppedThreshold = 0.1f; // 100ms - time to wait if camera position doesn't change
         private static float cameraPositionTolerance = 0.01f; // Small tolerance for position comparison
-        private static float cameraMoveSpeed = 0.3f; // Speed of camera movement (0.25f is default)
+        private static float cameraMoveSpeed = 0.05f; // Speed of camera movement (0.25f is default)
 
         private static bool isPanning = false;
         private static Vector3 lastPanMousePosition;
@@ -46,7 +46,7 @@ namespace QM_CameraZoomTweaker
         private static int newZoomIndex = -1;
         private static float oldPPU = 0f;
         private static float newPPU = 0f;
-        private static float zoomDuration = 0.3f; // Duration of zoom animation in seconds
+        private static float zoomDuration = 0.05f; // Duration of zoom animation in seconds
 
         [Hook(ModHookType.MainMenuStarted)]
         public static void MainMenuStarted(IModContext context)
@@ -88,32 +88,35 @@ namespace QM_CameraZoomTweaker
 
                 if (dungeonGameMode != null)
                 {
-                    // Get mouse position in screen coordinates
+                    // Calculate new zoom index first
+                    int newZoomIndex = dungeonGameMode.GameCamera._currentZoomIndex - 1;
+                    if (newZoomIndex < 0)
+                    {
+                        newZoomIndex = 0;
+                    }
+
+                    // Get mouse position in screen coordinates at current zoom level
                     Vector3 mouseScreenPos = Input.mousePosition;
 
-                    // Get current PPU as old value
+                     // Get current PPU as old value
                     oldPPU = dungeonGameMode.GameCamera._pixelPerfectCamera.assetsPPU;
 
                     // Convert mouse screen position to world coordinates at current zoom level
                     Camera camera = dungeonGameMode._camera.Camera;
                     mouseWorldPosBefore = camera.ScreenToWorldPoint(new Vector3(mouseScreenPos.x, mouseScreenPos.y, camera.nearClipPlane));
+
+                    // Predict where mouse will be after zoom
+                    mouseWorldPosAfter = PredictMouseWorldPositionAfterZoom(newZoomIndex);
+
                     cameraNeedMoving = true;
                     lastZoomTime = Time.time;
 
-                    // Original game code that we copy
-                    dungeonGameMode.GameCamera._currentZoomIndex--;
-                    if (dungeonGameMode.GameCamera._currentZoomIndex < 0)
-                    {
-                        dungeonGameMode.GameCamera._currentZoomIndex = 0;
-                    }
-
-                    // We remove this line - let smooth zoom handle it:
-                    // dungeonGameMode.GameCamera._pixelPerfectCamera.assetsPPU = dungeonGameMode.GameCamera._zoomLevels[dungeonGameMode.GameCamera._currentZoomIndex];
-
+                    // Apply zoom index change
+                    dungeonGameMode.GameCamera._currentZoomIndex = newZoomIndex;
                     GameCamera._lastZoom = dungeonGameMode.GameCamera._currentZoomIndex;
                 }
 
-                return true;
+                return false;
             }
         }
 
@@ -125,12 +128,19 @@ namespace QM_CameraZoomTweaker
             {
                 if (cameraNeedMoving || cooldownInProgress || isZooming)
                 {
-                    return false; // While we are handling camera movement or zooming, ignore the original method.
+                    return false;
                 }
 
                 if (dungeonGameMode != null)
                 {
-                    // Get mouse position in screen coordinates
+                    // Calculate new zoom index first
+                    int newZoomIndex = dungeonGameMode.GameCamera._currentZoomIndex + 1;
+                    if (newZoomIndex >= dungeonGameMode.GameCamera._zoomLevels.Length)
+                    {
+                        newZoomIndex = dungeonGameMode.GameCamera._zoomLevels.Length - 1;
+                    }
+
+                    // Get mouse position in screen coordinates at current zoom level
                     Vector3 mouseScreenPos = Input.mousePosition;
 
                     // Get current PPU as old value
@@ -139,22 +149,19 @@ namespace QM_CameraZoomTweaker
                     // Convert mouse screen position to world coordinates at current zoom level
                     Camera camera = dungeonGameMode._camera.Camera;
                     mouseWorldPosBefore = camera.ScreenToWorldPoint(new Vector3(mouseScreenPos.x, mouseScreenPos.y, camera.nearClipPlane));
+
+                    // Predict where mouse will be after zoom
+                    mouseWorldPosAfter = PredictMouseWorldPositionAfterZoom(newZoomIndex);
+
                     cameraNeedMoving = true;
                     lastZoomTime = Time.time;
 
-                    // Original game code that we copy
-                    dungeonGameMode.GameCamera._currentZoomIndex++;
-                    if (dungeonGameMode.GameCamera._currentZoomIndex >= dungeonGameMode.GameCamera._zoomLevels.Length)
-                    {
-                        dungeonGameMode.GameCamera._currentZoomIndex = dungeonGameMode.GameCamera._zoomLevels.Length - 1;
-                    }
-                    // We remove this line - let smooth zoom handle it:
-                    // dungeonGameMode.GameCamera._pixelPerfectCamera.assetsPPU = dungeonGameMode.GameCamera._zoomLevels[dungeonGameMode.GameCamera._currentZoomIndex];
+                    // Apply zoom index change
+                    dungeonGameMode.GameCamera._currentZoomIndex = newZoomIndex;
                     GameCamera._lastZoom = dungeonGameMode.GameCamera._currentZoomIndex;
-
                 }
 
-                return true;
+                return false;
             }
         }
 
@@ -412,8 +419,6 @@ namespace QM_CameraZoomTweaker
                     Plugin.Logger.Log($"Smooth zoom complete: {oldPPU} -> {newPPU}");
                 }
 
-                Plugin.Logger.Log($"Smooth zoom nit complete: {oldPPU} -> {newPPU}");
-
                 return; // Don't process camera movement while zooming
             }
 
@@ -427,18 +432,25 @@ namespace QM_CameraZoomTweaker
                 storedCameraPosition = currentCameraPos;
                 lastCameraPositionChangeTime = Time.time;
 
-                // Get mouse position in world coordinates after zoom
-                Vector3 mouseScreenPos = Input.mousePosition;
-                mouseWorldPosAfter = camera.ScreenToWorldPoint(new Vector3(mouseScreenPos.x, mouseScreenPos.y, camera.nearClipPlane));
+                // Predict mouse world position after zoom instead of calculating it after
+                mouseWorldPosAfter = PredictMouseWorldPositionAfterZoom(gameCamera._currentZoomIndex);
 
-                // Calculate the difference - this is how much the world point under cursor has shifted
+                // Calculate the difference - this is how much the world point under cursor will shift
                 Vector3 worldShift = mouseWorldPosAfter - mouseWorldPosBefore;
 
                 // Move camera by the opposite of this shift to keep the same world point under cursor
                 Vector3 targetCameraPos = currentCameraPos - worldShift;
 
+                Plugin.Logger.Log($"Predicted mouse world pos after zoom: {mouseWorldPosAfter}");
+                Plugin.Logger.Log($"Mouse world pos before zoom: {mouseWorldPosBefore}");
+                Plugin.Logger.Log($"World shift: {worldShift}");
+                Plugin.Logger.Log($"Target camera pos: {targetCameraPos}");
+
                 // Move camera to compensate for the zoom shift
                 gameCamera.MoveCameraToPosition(targetCameraPos, cameraMoveSpeed);
+
+                // Start smooth zoom transition
+                StartSmoothZoom();
 
                 // Set camera mode if needed
                 gameCamera.SetCameraMode(CameraMode.BorderMove);
@@ -571,6 +583,46 @@ namespace QM_CameraZoomTweaker
                     Plugin.Logger.Log("Stopped camera panning");
                 }
             }
+        }
+
+
+        private static Vector3 PredictMouseWorldPositionAfterZoom(int newZoomIndex)
+        {
+            if (dungeonGameMode == null) return Vector3.zero;
+
+            var gameCamera = dungeonGameMode._camera;
+            Camera camera = gameCamera.Camera;
+
+            // Get current mouse screen position
+            Vector3 mouseScreenPos = Input.mousePosition;
+
+            // Get current and new PPU values
+            float currentPPU = gameCamera._pixelPerfectCamera.assetsPPU;
+            float newPPU = gameCamera._zoomLevels[newZoomIndex];
+
+            // Calculate the scale factor between old and new zoom
+            float zoomScaleFactor = currentPPU / newPPU;
+
+            // Get current camera orthographic size
+            float currentOrthoSize = camera.orthographicSize;
+
+            // Calculate what the new orthographic size will be
+            float newOrthoSize = currentOrthoSize * zoomScaleFactor;
+
+            // Convert mouse screen position to world coordinates using predicted orthographic size
+            float halfHeight = newOrthoSize;
+            float halfWidth = halfHeight * camera.aspect;
+
+            // Convert screen coordinates to normalized coordinates (0-1)
+            float normalizedX = mouseScreenPos.x / Screen.width;
+            float normalizedY = mouseScreenPos.y / Screen.height;
+
+            // Convert to world coordinates relative to camera position
+            Vector3 cameraPos = camera.transform.position;
+            float worldX = cameraPos.x + (normalizedX - 0.5f) * 2f * halfWidth;
+            float worldY = cameraPos.y + (normalizedY - 0.5f) * 2f * halfHeight;
+
+            return new Vector3(worldX, worldY, camera.nearClipPlane);
         }
     }
 }
