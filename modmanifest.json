@@ -3,5 +3,10 @@
   "Assemblies": [
     "QM_CameraPanAndZoom.dll"
   ],
-  "Dependencies": []
+  "Dependencies": [],
+  "SteamTags": [
+    "0.9.1",
+    "0.9",
+    "Quality of Life"
+  ]
 }
