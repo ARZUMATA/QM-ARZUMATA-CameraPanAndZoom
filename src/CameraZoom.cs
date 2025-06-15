@@ -27,20 +27,13 @@ namespace QM_CameraZoomTweaker
 
         // GameCamera
         private static int _lastZoom = -1;
-        private static bool cameraNeedMoving;
         private static bool cooldownInProgress;
         private static CellPosition cellPosition;
 
         private static float lastZoomTime = 0f;
         private const float ZOOM_COOLDOWN = 0.01f; // Minimum time between zoom operations (ms)
 
-        private static Vector3 storedCameraPosition;
         private static float lastCameraPositionChangeTime = 0f;
-        private const float MIN_MOVEMENT_THRESHOLD = 0.1f;
-        private const float CURVE_ACCELERATION_FACTOR = 1.8f;
-        private const float CAMERA_STOPPED_THRESHOLD = 0.01f; // 100ms - time to wait if camera position doesn't change
-        private const float CAMERA_POSITION_TOLERANCE = 0.01f; // Small tolerance for position comparison
-        private static float cameraMoveSpeed = 0.05f; // Speed of camera movement (0.25f is default)
 
         private static bool alternativeMode = false;
         private static int ppuStep = 6;
@@ -175,7 +168,7 @@ namespace QM_CameraZoomTweaker
 
             Plugin.Logger.Log($"newPPU PPU: {ZoomState.NewPPU}");
 
-            cameraNeedMoving = true;
+            CameraConfiguration.CameraNeedMoving = true;
             lastZoomTime = Time.time;
             return false;
         }
@@ -212,7 +205,7 @@ namespace QM_CameraZoomTweaker
                 return true; // Skip and use original method.
             }
 
-            if (cameraNeedMoving || cooldownInProgress || ZoomState.IsZooming)
+            if (CameraConfiguration.CameraNeedMoving || cooldownInProgress || ZoomState.IsZooming)
             {
                 return false; // While we are handling camera movement or zooming, do nothing.
             }
@@ -235,7 +228,7 @@ namespace QM_CameraZoomTweaker
             ZoomState.OldPPU = dungeonGameMode.GameCamera._pixelPerfectCamera.assetsPPU;
             ZoomState.NewPPU = gameCamera._zoomLevels[newZoomIndex];
 
-            cameraNeedMoving = true;
+            CameraConfiguration.CameraNeedMoving = true;
             lastZoomTime = Time.time;
 
             // Apply zoom index change
@@ -459,7 +452,7 @@ namespace QM_CameraZoomTweaker
                     ? 0.5f + progressRatio // Linear growth in first half
                     : 0.5f + progressRatio + (progressRatio - 0.5f) * progressRatio; // Accelerated growth in second half
 
-                var increment = Math.Max(minStepSize, (int)(zoomInRange * curveValue / Plugin.Config.ZoomInSteps * CURVE_ACCELERATION_FACTOR));
+                var increment = Math.Max(minStepSize, (int)(zoomInRange * curveValue / Plugin.Config.ZoomInSteps * ZoomConfiguration.CURVE_ACCELERATION_FACTOR));
 
                 var newValue = newArray[i + 1] + increment;
                 newArray[i] = Math.Min((int)ZoomConfiguration.PpuMax, newValue);
@@ -477,7 +470,7 @@ namespace QM_CameraZoomTweaker
                     ? 0.5f + progressRatio // Linear decrease in first half
                     : 0.5f + progressRatio + (progressRatio - 0.5f) * progressRatio; // Accelerated decrease in second half
 
-                var decrement = Math.Max(minStepSize, (int)(zoomOutRange * curveValue / Plugin.Config.ZoomOutSteps * CURVE_ACCELERATION_FACTOR));
+                var decrement = Math.Max(minStepSize, (int)(zoomOutRange * curveValue / Plugin.Config.ZoomOutSteps * ZoomConfiguration.CURVE_ACCELERATION_FACTOR));
 
                 var newValue = newArray[i - 1] - decrement;
                 newArray[i] = Math.Max((int)ZoomConfiguration.PpuMin, newValue);
@@ -519,7 +512,7 @@ namespace QM_CameraZoomTweaker
 
         private static void LoadConfiguration()
         {
-            cameraMoveSpeed = Plugin.Config.CameraMoveDuration / 100f;
+            CameraConfiguration.CameraMoveSpeed = Plugin.Config.CameraMoveDuration / 100f;
             zoomDuration = Plugin.Config.ZoomDuration / 100f;
             PanState.Sensitivity = Plugin.Config.PanSensitivity;
             alternativeMode = Plugin.Config.ZoomAlternativeMode;
@@ -529,7 +522,7 @@ namespace QM_CameraZoomTweaker
             if (alternativeMode)
             {
                 Plugin.Logger.Log($"Using alternative zoom");
-                cameraMoveSpeed = 0f;
+                CameraConfiguration.CameraMoveSpeed = 0f;
                 zoomDuration = 0f;
                 UpdateCameraZoomPPU();
                 isInitialized = true;
@@ -589,11 +582,11 @@ namespace QM_CameraZoomTweaker
                 return; // Don't process camera movement while zooming
             }
 
-            if (cameraNeedMoving && dungeonGameMode != null)
+            if (CameraConfiguration.CameraNeedMoving && dungeonGameMode != null)
             {
                 // Store current camera position before moving
                 Vector3 currentCameraPos = gameCamera.transform.position;
-                storedCameraPosition = currentCameraPos;
+                CameraConfiguration.StoredCameraPosition = currentCameraPos;
                 lastCameraPositionChangeTime = Time.time;
 
                 CursorState.MouseWorldPosBefore = MouseScreenToWorldPoint();
@@ -613,11 +606,11 @@ namespace QM_CameraZoomTweaker
                 Plugin.Logger.Log($"Target camera pos: {targetCameraPos}");
 
                 // Move camera to compensate for the zoom shift
-                gameCamera.MoveCameraToPosition(targetCameraPos, cameraMoveSpeed);
+                gameCamera.MoveCameraToPosition(targetCameraPos, CameraConfiguration.CameraMoveSpeed);
 
                 // Set camera mode if needed
                 gameCamera.SetCameraMode(CameraMode.BorderMove);
-                cameraNeedMoving = false;
+                CameraConfiguration.CameraNeedMoving = false;
                 cooldownInProgress = true;
 
                 // Start smooth zoom transition
@@ -630,10 +623,10 @@ namespace QM_CameraZoomTweaker
                 Vector3 currentPos = dungeonGameMode._camera.transform.position;
 
                 // Check if camera position has changed since last frame
-                if (Vector3.Distance(currentPos, storedCameraPosition) > CAMERA_POSITION_TOLERANCE)
+                if (Vector3.Distance(currentPos, CameraConfiguration.StoredCameraPosition) > CameraConfiguration.CAMERA_POSITION_TOLERANCE)
                 {
                     // Camera is still moving, update stored position and time
-                    storedCameraPosition = currentPos;
+                    CameraConfiguration.StoredCameraPosition = currentPos;
                     lastCameraPositionChangeTime = Time.time;
                     Plugin.Logger.Log($"Camera still moving - Current pos: {currentPos}");
                 }
@@ -644,7 +637,7 @@ namespace QM_CameraZoomTweaker
 
                 // Check if we can stop camera movement handling
                 bool cooldownComplete = Time.time - lastZoomTime > ZOOM_COOLDOWN;
-                bool cameraStoppedMoving = Time.time - lastCameraPositionChangeTime > CAMERA_STOPPED_THRESHOLD;
+                bool cameraStoppedMoving = Time.time - lastCameraPositionChangeTime > CameraConfiguration.CAMERA_STOPPED_THRESHOLD;
                 bool zoomComplete = !ZoomState.IsZooming; // Also wait for zoom to complete
 
                 if (cooldownComplete && cameraStoppedMoving && zoomComplete)
@@ -667,7 +660,7 @@ namespace QM_CameraZoomTweaker
         private static bool CanSmoothZoom()
         {
             // Only start smooth zoom if there's a difference
-            if (Mathf.Abs(ZoomState.OldPPU - ZoomState.NewPPU) > MIN_MOVEMENT_THRESHOLD)
+            if (Mathf.Abs(ZoomState.OldPPU - ZoomState.NewPPU) > ZoomConfiguration.MIN_MOVEMENT_THRESHOLD)
             {
                 ZoomState.ZoomStartTime = Time.time;
                 Plugin.Logger.Log($"Starting smooth zoom: {ZoomState.OldPPU} -> {ZoomState.NewPPU}");
