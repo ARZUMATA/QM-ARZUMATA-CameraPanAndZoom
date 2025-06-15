@@ -547,31 +547,46 @@ namespace QM_CameraZoomTweaker
                 return;
             }
 
-            // Handle smooth zooming
-            if (ZoomState.IsZooming)
+            HandleSmoothZooming();
+            HandleCameraPositioning();
+            HandleMovementCooldown();
+        }
+
+        private static void HandleMovementCooldown()
+        {
+            if (CameraState.CooldownInProgress)
             {
-                float elapsedTime = Time.time - ZoomState.ZoomStartTime;
-                float progress = Mathf.Clamp01(elapsedTime / ZoomConfiguration.Duration);
+                // Check current camera position after movement command
+                Vector3 currentPos = dungeonGameMode._camera.transform.position;
 
-                // Use smooth curve for zoom transition
-                float smoothProgress = Mathf.SmoothStep(0f, 1f, progress);
-
-                // Interpolate PPU value
-                float temporaryPPU = Mathf.Lerp(ZoomState.OldPPU, ZoomState.NewPPU, smoothProgress);
-                gameCamera._pixelPerfectCamera.assetsPPU = (int)temporaryPPU;
-
-                // Check if zoom animation is complete
-                if (progress >= 1f)
+                // Check if camera position has changed since last frame
+                if (Vector3.Distance(currentPos, CameraConfiguration.StoredCameraPosition) > CameraConfiguration.CAMERA_POSITION_TOLERANCE)
                 {
-                    // Ensure final PPU is exactly the target value
-                    gameCamera._pixelPerfectCamera.assetsPPU = (int)ZoomState.NewPPU;
-                    ZoomState.IsZooming = false;
-                    Plugin.Logger.Log($"Smooth zoom complete: {ZoomState.OldPPU} -> {ZoomState.NewPPU}");
+                    // Camera is still moving, update stored position and time
+                    CameraConfiguration.StoredCameraPosition = currentPos;
+                    CameraState.LastCameraPositionChangeTime = Time.time;
+                    Plugin.Logger.Log($"Camera still moving - Current pos: {currentPos}");
+                }
+                else
+                {
+                    Plugin.Logger.Log($"Camera not moving - Current pos: {currentPos}");
                 }
 
-                return; // Don't process camera movement while zooming
-            }
+                // Check if we can stop camera movement handling
+                bool cooldownComplete = Time.time - ZoomState.LastZoomTime > ZoomConfiguration.ZOOM_COOLDOWN;
+                bool cameraStoppedMoving = Time.time - CameraState.LastCameraPositionChangeTime > CameraConfiguration.CAMERA_STOPPED_THRESHOLD;
+                bool zoomComplete = !ZoomState.IsZooming; // Also wait for zoom to complete
 
+                if (cooldownComplete && cameraStoppedMoving && zoomComplete)
+                {
+                    Plugin.Logger.Log($"Camera movement complete - Cooldown: {cooldownComplete}, Camera stopped: {cameraStoppedMoving}, Zoom complete: {zoomComplete}");
+                    CameraState.CooldownInProgress = false;
+                }
+            }
+        }
+
+        private static void HandleCameraPositioning()
+        {
             if (CameraConfiguration.CameraNeedMoving && dungeonGameMode != null)
             {
                 // Store current camera position before moving
@@ -606,35 +621,33 @@ namespace QM_CameraZoomTweaker
                 // Start smooth zoom transition
                 ZoomState.IsZooming = CanSmoothZoom();
             }
+        }
 
-            if (CameraState.CooldownInProgress)
+        private static void HandleSmoothZooming()
+        {
+            // Handle smooth zooming
+            if (ZoomState.IsZooming)
             {
-                // Check current camera position after movement command
-                Vector3 currentPos = dungeonGameMode._camera.transform.position;
+                float elapsedTime = Time.time - ZoomState.ZoomStartTime;
+                float progress = Mathf.Clamp01(elapsedTime / ZoomConfiguration.Duration);
 
-                // Check if camera position has changed since last frame
-                if (Vector3.Distance(currentPos, CameraConfiguration.StoredCameraPosition) > CameraConfiguration.CAMERA_POSITION_TOLERANCE)
+                // Use smooth curve for zoom transition
+                float smoothProgress = Mathf.SmoothStep(0f, 1f, progress);
+
+                // Interpolate PPU value
+                float temporaryPPU = Mathf.Lerp(ZoomState.OldPPU, ZoomState.NewPPU, smoothProgress);
+                gameCamera._pixelPerfectCamera.assetsPPU = (int)temporaryPPU;
+
+                // Check if zoom animation is complete
+                if (progress >= 1f)
                 {
-                    // Camera is still moving, update stored position and time
-                    CameraConfiguration.StoredCameraPosition = currentPos;
-                    CameraState.LastCameraPositionChangeTime = Time.time;
-                    Plugin.Logger.Log($"Camera still moving - Current pos: {currentPos}");
-                }
-                else
-                {
-                    Plugin.Logger.Log($"Camera not moving - Current pos: {currentPos}");
+                    // Ensure final PPU is exactly the target value
+                    gameCamera._pixelPerfectCamera.assetsPPU = (int)ZoomState.NewPPU;
+                    ZoomState.IsZooming = false;
+                    Plugin.Logger.Log($"Smooth zoom complete: {ZoomState.OldPPU} -> {ZoomState.NewPPU}");
                 }
 
-                // Check if we can stop camera movement handling
-                bool cooldownComplete = Time.time - ZoomState.LastZoomTime > ZoomConfiguration.ZOOM_COOLDOWN;
-                bool cameraStoppedMoving = Time.time - CameraState.LastCameraPositionChangeTime > CameraConfiguration.CAMERA_STOPPED_THRESHOLD;
-                bool zoomComplete = !ZoomState.IsZooming; // Also wait for zoom to complete
-
-                if (cooldownComplete && cameraStoppedMoving && zoomComplete)
-                {
-                    Plugin.Logger.Log($"Camera movement complete - Cooldown: {cooldownComplete}, Camera stopped: {cameraStoppedMoving}, Zoom complete: {zoomComplete}");
-                    CameraState.CooldownInProgress = false;
-                }
+                return; // Don't process camera movement while zooming
             }
         }
 
