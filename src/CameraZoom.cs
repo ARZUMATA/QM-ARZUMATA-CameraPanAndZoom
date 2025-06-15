@@ -229,8 +229,8 @@ namespace QM_CameraPanAndZoom
         [Hook(ModHookType.DungeonUpdateBeforeGameLoop)]
         public static void DungeonUpdateBeforeGameLoop(IModContext context)
         {
-            ModConfiguration.ModZoomTweakEnabled = Plugin.Config.ModZoomTweakEnabled;
-            ModConfiguration.ModPanningEnabled = Plugin.Config.ModPanningEnabled;
+            ModConfiguration.ModZoomTweakEnabled = Plugin.Config.ZoomTweakEnabled;
+            ModConfiguration.ModPanningEnabled = Plugin.Config.PanningEnabled;
 
             if (ModConfiguration.ModPanningEnabled)
             {
