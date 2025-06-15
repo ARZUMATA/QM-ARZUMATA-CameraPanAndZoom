@@ -25,9 +25,6 @@ namespace QM_CameraZoomTweaker
         private static GameCamera gameCamera = null;
         private static Camera camera = null;
 
-        // GameCamera
-        private static int _lastZoom = -1;
-        private static bool cooldownInProgress;
         private static CellPosition cellPosition;
 
         private static float lastZoomTime = 0f;
@@ -35,7 +32,6 @@ namespace QM_CameraZoomTweaker
 
         private static float lastCameraPositionChangeTime = 0f;
 
-        private static bool alternativeMode = false;
         private static int ppuStep = 6;
         private static float zoomDuration = 0.05f; // Duration of zoom animation in seconds
 
@@ -205,12 +201,12 @@ namespace QM_CameraZoomTweaker
                 return true; // Skip and use original method.
             }
 
-            if (CameraConfiguration.CameraNeedMoving || cooldownInProgress || ZoomState.IsZooming)
+            if (CameraConfiguration.CameraNeedMoving || CameraState.CooldownInProgress || ZoomState.IsZooming)
             {
                 return false; // While we are handling camera movement or zooming, do nothing.
             }
 
-            if (alternativeMode)
+            if (ZoomConfiguration.AlternativeMode)
             {
                 HandleAlternativeZoom(isZoomIn);
             }
@@ -251,15 +247,15 @@ namespace QM_CameraZoomTweaker
             {
                 return;
             }
-            if (_lastZoom != GameCamera._lastZoom)
+            if (CameraState.LastZoom != GameCamera._lastZoom)
             {
-                if (_lastZoom > GameCamera._lastZoom)
+                if (CameraState.LastZoom > GameCamera._lastZoom)
                 {
                     // Zoom in
                     //cameraNeedMoving = true;
                 }
 
-                _lastZoom = GameCamera._lastZoom;
+                CameraState.LastZoom = GameCamera._lastZoom;
             }
 
             HandleCameraMovement();
@@ -405,26 +401,26 @@ namespace QM_CameraZoomTweaker
             gameCamera._currentZoomIndex = centralIndex;
             Plugin.Logger.Log($"Updated: gameCamera._currentZoomIndex");
 
-            if (_lastZoom > 0) // We need to update our camera last zoom
+            if (CameraState.LastZoom > 0) // We need to update our camera last zoom
             {
                 Plugin.Logger.Log($"_lastZoom > 0)");
 
-                if (_lastZoom < gameCamera._zoomLevels.Length) // We within of array bounds
+                if (CameraState.LastZoom < gameCamera._zoomLevels.Length) // We within of array bounds
                 {
                     Plugin.Logger.Log($"_lastZoom < gameCamera._zoomLevels.Length");
-                    _lastZoom = gameCamera._defaultZoomIndex;
+                    CameraState.LastZoom = gameCamera._defaultZoomIndex;
                     GameCamera._lastZoom = gameCamera._defaultZoomIndex;
                 }
                 else
                 {
                     Plugin.Logger.Log($"_lastZoom >= gameCamera._zoomLevels.Length");
-                    _lastZoom = -1;
+                    CameraState.LastZoom = -1;
                 }
 
                 if (GameCamera._lastZoom > 0) // We got some camera zoom saved
                 {
                     Plugin.Logger.Log($"GameCamera._lastZoom > 0");
-                    _lastZoom = GameCamera._lastZoom;
+                    CameraState.LastZoom = GameCamera._lastZoom;
                 }
                 else
                 {
@@ -434,7 +430,7 @@ namespace QM_CameraZoomTweaker
                 }
             }
 
-            Plugin.Logger.Log($"_lastZoom {_lastZoom}");
+            Plugin.Logger.Log($"_lastZoom {CameraState.LastZoom}");
         }
 
         private static void FillZoomLevelsArray(int[] newArray, int centralIndex)
@@ -515,11 +511,11 @@ namespace QM_CameraZoomTweaker
             CameraConfiguration.CameraMoveSpeed = Plugin.Config.CameraMoveDuration / 100f;
             zoomDuration = Plugin.Config.ZoomDuration / 100f;
             PanState.Sensitivity = Plugin.Config.PanSensitivity;
-            alternativeMode = Plugin.Config.ZoomAlternativeMode;
+            ZoomConfiguration.AlternativeMode = Plugin.Config.ZoomAlternativeMode;
             ZoomConfiguration.PpuMin = Plugin.Config.ZoomMin;
             ZoomConfiguration.PpuMax = Plugin.Config.ZoomMax;
 
-            if (alternativeMode)
+            if (ZoomConfiguration.AlternativeMode)
             {
                 Plugin.Logger.Log($"Using alternative zoom");
                 CameraConfiguration.CameraMoveSpeed = 0f;
@@ -531,7 +527,7 @@ namespace QM_CameraZoomTweaker
 
         private static void UpdateCameraZoomPPU()
         {
-            if (alternativeMode)
+            if (ZoomConfiguration.AlternativeMode)
             {
                 gameCamera._pixelPerfectCamera.assetsPPU = (int)(ZoomState.NewPPU == 0 ? ZoomConfiguration.PpuDefault : ZoomState.NewPPU);
             }
@@ -592,7 +588,7 @@ namespace QM_CameraZoomTweaker
                 CursorState.MouseWorldPosBefore = MouseScreenToWorldPoint();
 
                 // Predict where mouse will be after zoom
-                CursorState.MouseWorldPosAfter = alternativeMode ? PredictMouseWorldPositionAfterZoom(ZoomState.NewPPU) : PredictMouseWorldPositionAfterZoom(gameCamera._zoomLevels[gameCamera._currentZoomIndex]);
+                CursorState.MouseWorldPosAfter = ZoomConfiguration.AlternativeMode ? PredictMouseWorldPositionAfterZoom(ZoomState.NewPPU) : PredictMouseWorldPositionAfterZoom(gameCamera._zoomLevels[gameCamera._currentZoomIndex]);
 
                 // Calculate the difference - this is how much the world point under cursor will shift
                 Vector3 worldShift = CursorState.MouseWorldPosAfter - CursorState.MouseWorldPosBefore;
@@ -611,13 +607,13 @@ namespace QM_CameraZoomTweaker
                 // Set camera mode if needed
                 gameCamera.SetCameraMode(CameraMode.BorderMove);
                 CameraConfiguration.CameraNeedMoving = false;
-                cooldownInProgress = true;
+                CameraState.CooldownInProgress = true;
 
                 // Start smooth zoom transition
                 ZoomState.IsZooming = CanSmoothZoom();
             }
 
-            if (cooldownInProgress)
+            if (CameraState.CooldownInProgress)
             {
                 // Check current camera position after movement command
                 Vector3 currentPos = dungeonGameMode._camera.transform.position;
@@ -643,7 +639,7 @@ namespace QM_CameraZoomTweaker
                 if (cooldownComplete && cameraStoppedMoving && zoomComplete)
                 {
                     Plugin.Logger.Log($"Camera movement complete - Cooldown: {cooldownComplete}, Camera stopped: {cameraStoppedMoving}, Zoom complete: {zoomComplete}");
-                    cooldownInProgress = false;
+                    CameraState.CooldownInProgress = false;
                 }
             }
         }
