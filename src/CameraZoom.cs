@@ -15,12 +15,6 @@ namespace QM_CameraZoomTweaker
 {
     internal class CameraZoom
     {
-        private static bool isInitialized = false;
-        //private static bool enabled = false;
-        private static bool modZoomTweakEnabled = false;
-        private static bool modPanningEnabled = false;
-
-        private static int[] newZoomArray;
         private static DungeonGameMode dungeonGameMode = null;
         private static GameCamera gameCamera = null;
         private static Camera camera = null;
@@ -111,9 +105,9 @@ namespace QM_CameraZoomTweaker
         [Hook(ModHookType.DungeonFinished)]
         public static void DungeonFinished(IModContext context)
         {
-            modZoomTweakEnabled = false;
-            modPanningEnabled = false;
-            isInitialized = false;
+            ModConfiguration.ModZoomTweakEnabled = false;
+            ModConfiguration.ModPanningEnabled = false;
+            ModConfiguration.IsInitialized = false;
             dungeonGameMode = null;
             GameCamera._lastZoom = -1; // We need to reset last zoom as new camera will not have our new array.
         }
@@ -193,7 +187,7 @@ namespace QM_CameraZoomTweaker
 
         private static bool HandleZoom(bool isZoomIn)
         {
-            if (!modZoomTweakEnabled)
+            if (!ModConfiguration.ModZoomTweakEnabled)
             {
                 return true; // Skip and use original method.
             }
@@ -232,15 +226,15 @@ namespace QM_CameraZoomTweaker
         [Hook(ModHookType.DungeonUpdateBeforeGameLoop)]
         public static void DungeonUpdateBeforeGameLoop(IModContext context)
         {
-            modZoomTweakEnabled = Plugin.Config.ModZoomTweakEnabled;
-            modPanningEnabled = Plugin.Config.ModPanningEnabled;
+            ModConfiguration.ModZoomTweakEnabled = Plugin.Config.ModZoomTweakEnabled;
+            ModConfiguration.ModPanningEnabled = Plugin.Config.ModPanningEnabled;
 
-            if (modPanningEnabled)
+            if (ModConfiguration.ModPanningEnabled)
             {
                 HandleCameraPanning();
             }
 
-            if (!modZoomTweakEnabled)
+            if (!ModConfiguration.ModZoomTweakEnabled)
             {
                 return;
             }
@@ -477,21 +471,21 @@ namespace QM_CameraZoomTweaker
 
         private static void Initialize()
         {
-            if (!isInitialized)
+            if (!ModConfiguration.IsInitialized)
             {
                 try
                 {
                     FindGameObjects();
                     LoadConfiguration();
 
-                    if (isInitialized)
+                    if (ModConfiguration.IsInitialized)
                     {
                         return;
                     }
 
                     CreateZoomLevelsArray();
                     UpdateCameraZoomPPU();
-                    isInitialized = true;
+                    ModConfiguration.IsInitialized = true;
                     Plugin.Logger.Log("Initialized");
 
                 }
@@ -518,7 +512,7 @@ namespace QM_CameraZoomTweaker
                 CameraConfiguration.CameraMoveSpeed = 0f;
                 ZoomConfiguration.Duration = 0f;
                 UpdateCameraZoomPPU();
-                isInitialized = true;
+                ModConfiguration.IsInitialized = true;
             }
         }
 
