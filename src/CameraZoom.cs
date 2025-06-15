@@ -94,46 +94,8 @@ namespace QM_CameraZoomTweaker
             [HarmonyPrefix]
             public static bool Prefix()
             {
-                if (!modZoomTweakEnabled)
-                {
-                    return true;
-                }
-
-                if (cameraNeedMoving || cooldownInProgress || isZooming)
-                {
-                    return false; // While we are handling camera movement or zooming, ignore the original method.
-                }
-
-                if (alternativeMode)
-                {
-                    // Get current PPU as old value
-                    oldPPU = dungeonGameMode.GameCamera._pixelPerfectCamera.assetsPPU;
-
-                    // Calculate dynamic step size based on current PPU
-                    int dynamicStep = CalculateDynamicStep(oldPPU, true); // true for zoom in
-
-                    // Calculate new PPU with bounds checking
-                    newPPU = Mathf.Clamp(oldPPU + dynamicStep, ppuMin, ppuMax);
-
-                    Plugin.Logger.Log($"newPPU PPU: {newPPU}");
-
-                    cameraNeedMoving = true;
-                    lastZoomTime = Time.time;
-                    return false;
-                }
-                else
-                {
-                    // Calculate new zoom index first
-                    int newZoomIndex = dungeonGameMode.GameCamera._currentZoomIndex - 1;
-                    if (newZoomIndex < 0)
-                    {
-                        newZoomIndex = 0;
-                    }
-
-                    ApplyNewZoomIndex(newZoomIndex);
-                }
-
-                return false;
+                Plugin.Logger.Log("ZoomIn");
+                return HandleZoom(isZoomIn: true);
             }
 
         }
@@ -144,47 +106,83 @@ namespace QM_CameraZoomTweaker
             [HarmonyPrefix]
             public static bool Prefix()
             {
-                if (!modZoomTweakEnabled)
-                {
-                    return true;
-                }
-
-                if (cameraNeedMoving || cooldownInProgress || isZooming)
-                {
-                    return false; // While we are handling camera movement or zooming, ignore the original method.
-                }
-
-                if (alternativeMode)
-                {
-                    // Get current PPU as old value
-                    oldPPU = dungeonGameMode.GameCamera._pixelPerfectCamera.assetsPPU;
-
-                    // Calculate dynamic step size based on current PPU
-                    int dynamicStep = CalculateDynamicStep(oldPPU, false); // false for zoom out
-
-                    // Calculate new PPU with bounds checking
-                    newPPU = Mathf.Clamp(oldPPU - dynamicStep, ppuMin, ppuMax);
-
-                    Plugin.Logger.Log($"newPPU PPU: {newPPU}");
-
-                    cameraNeedMoving = true;
-                    lastZoomTime = Time.time;
-                    return false;
-                }
-                else
-                {
-                    // Calculate new zoom index first
-                    int newZoomIndex = dungeonGameMode.GameCamera._currentZoomIndex + 1;
-                    if (newZoomIndex >= dungeonGameMode.GameCamera._zoomLevels.Length)
-                    {
-                        newZoomIndex = dungeonGameMode.GameCamera._zoomLevels.Length - 1;
-                    }
-
-                    ApplyNewZoomIndex(newZoomIndex);
-                }
-
-                return false;
+                Plugin.Logger.Log("ZoomOut");
+                return HandleZoom(isZoomIn: false);
             }
+        }
+
+        private static bool HandleAlternativeZoom(bool isZoomIn)
+        {
+            // Get current PPU as old value
+            oldPPU = dungeonGameMode.GameCamera._pixelPerfectCamera.assetsPPU;
+
+            // Calculate dynamic step size based on current PPU
+            int dynamicStep = CalculateDynamicStep(oldPPU, isZoomIn); // true for zoom in
+
+            // Calculate new PPU with bounds checking
+            if (isZoomIn)
+            {
+                newPPU = Mathf.Clamp(oldPPU + dynamicStep, ppuMin, ppuMax);
+            }
+            else
+            {
+                newPPU = Mathf.Clamp(oldPPU - dynamicStep, ppuMin, ppuMax);
+            }
+
+            Plugin.Logger.Log($"newPPU PPU: {newPPU}");
+
+            cameraNeedMoving = true;
+            lastZoomTime = Time.time;
+            return false;
+        }
+
+        private static void HandleIndexBasedZoom(bool isZoomIn)
+        {
+            int newZoomIndex = 0;
+            if (isZoomIn)
+            {
+                // Calculate new zoom index first
+                newZoomIndex = dungeonGameMode.GameCamera._currentZoomIndex - 1;
+                if (newZoomIndex < 0)
+                {
+                    newZoomIndex = 0;
+                }
+            }
+            else
+            {
+                // Calculate new zoom index first
+                newZoomIndex = dungeonGameMode.GameCamera._currentZoomIndex + 1;
+                if (newZoomIndex >= dungeonGameMode.GameCamera._zoomLevels.Length)
+                {
+                    newZoomIndex = dungeonGameMode.GameCamera._zoomLevels.Length - 1;
+                }
+            }
+
+            ApplyNewZoomIndex(newZoomIndex);
+        }
+
+        private static bool HandleZoom(bool isZoomIn)
+        {
+            if (!modZoomTweakEnabled)
+            {
+                return true; // Skip and use original method.
+            }
+
+            if (cameraNeedMoving || cooldownInProgress || isZooming)
+            {
+                return false; // While we are handling camera movement or zooming, do nothing.
+            }
+
+            if (alternativeMode)
+            {
+                HandleAlternativeZoom(isZoomIn);
+            }
+            else
+            {
+                HandleIndexBasedZoom(isZoomIn);
+            }
+
+            return false;
         }
 
         private static void ApplyNewZoomIndex(int newZoomIndex)
