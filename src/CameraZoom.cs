@@ -19,13 +19,6 @@ namespace QM_CameraZoomTweaker
         private static GameCamera gameCamera = null;
         private static Camera camera = null;
 
-        private static CellPosition cellPosition;
-
-        private static float lastZoomTime = 0f;
-        private const float ZOOM_COOLDOWN = 0.01f; // Minimum time between zoom operations (ms)
-
-        private static float lastCameraPositionChangeTime = 0f;
-
         private static class CursorState
         {
             public static Vector3 MouseWorldPosBefore { get; set; }
@@ -156,7 +149,7 @@ namespace QM_CameraZoomTweaker
             Plugin.Logger.Log($"newPPU PPU: {ZoomState.NewPPU}");
 
             CameraConfiguration.CameraNeedMoving = true;
-            lastZoomTime = Time.time;
+            ZoomState.LastZoomTime = Time.time;
             return false;
         }
 
@@ -216,7 +209,7 @@ namespace QM_CameraZoomTweaker
             ZoomState.NewPPU = gameCamera._zoomLevels[newZoomIndex];
 
             CameraConfiguration.CameraNeedMoving = true;
-            lastZoomTime = Time.time;
+            ZoomState.LastZoomTime = Time.time;
 
             // Apply zoom index change
             dungeonGameMode.GameCamera._currentZoomIndex = newZoomIndex;
@@ -574,7 +567,7 @@ namespace QM_CameraZoomTweaker
                 // Store current camera position before moving
                 Vector3 currentCameraPos = gameCamera.transform.position;
                 CameraConfiguration.StoredCameraPosition = currentCameraPos;
-                lastCameraPositionChangeTime = Time.time;
+                CameraState.LastCameraPositionChangeTime = Time.time;
 
                 CursorState.MouseWorldPosBefore = MouseScreenToWorldPoint();
 
@@ -614,7 +607,7 @@ namespace QM_CameraZoomTweaker
                 {
                     // Camera is still moving, update stored position and time
                     CameraConfiguration.StoredCameraPosition = currentPos;
-                    lastCameraPositionChangeTime = Time.time;
+                    CameraState.LastCameraPositionChangeTime = Time.time;
                     Plugin.Logger.Log($"Camera still moving - Current pos: {currentPos}");
                 }
                 else
@@ -623,8 +616,8 @@ namespace QM_CameraZoomTweaker
                 }
 
                 // Check if we can stop camera movement handling
-                bool cooldownComplete = Time.time - lastZoomTime > ZOOM_COOLDOWN;
-                bool cameraStoppedMoving = Time.time - lastCameraPositionChangeTime > CameraConfiguration.CAMERA_STOPPED_THRESHOLD;
+                bool cooldownComplete = Time.time - ZoomState.LastZoomTime > ZoomConfiguration.ZOOM_COOLDOWN;
+                bool cameraStoppedMoving = Time.time - CameraState.LastCameraPositionChangeTime > CameraConfiguration.CAMERA_STOPPED_THRESHOLD;
                 bool zoomComplete = !ZoomState.IsZooming; // Also wait for zoom to complete
 
                 if (cooldownComplete && cameraStoppedMoving && zoomComplete)
