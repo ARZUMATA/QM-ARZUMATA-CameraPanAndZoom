@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 
-namespace QM_CameraZoomTweaker
+namespace QM_CameraPanAndZoom
 {
     public class ConfigDirectories
     {

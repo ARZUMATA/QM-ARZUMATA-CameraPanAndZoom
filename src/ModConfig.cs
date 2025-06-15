@@ -12,7 +12,7 @@ using Newtonsoft.Json.Converters;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
-namespace QM_CameraZoomTweaker
+namespace QM_CameraPanAndZoom
 {
     public class ModConfig
     {

@@ -11,7 +11,7 @@ using UnityEngine.Rendering.Universal;
 using UnityEngine.UI;
 using static MGSC.Localization;
 
-namespace QM_CameraZoomTweaker
+namespace QM_CameraPanAndZoom
 {
     internal class CameraZoom
     {

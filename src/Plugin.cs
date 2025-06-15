@@ -11,7 +11,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 
-namespace QM_CameraZoomTweaker
+namespace QM_CameraPanAndZoom
 {
     public static class Plugin
     {
@@ -90,7 +90,7 @@ namespace QM_CameraZoomTweaker
              * New MCM will have the support so gotta wait. */
 
             // Handle embedded config.ini
-            Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("QM_CameraZoomTweaker.config.ini");
+            Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("QM_CameraPanAndZoom.config.ini");
             StreamReader reader = new StreamReader(stream);
 
             // Check MD5 of config.ini to determine if we need to replace with with new version.

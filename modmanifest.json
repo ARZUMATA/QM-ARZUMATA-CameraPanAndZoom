@@ -1,0 +1,7 @@
+{
+  "UniqueModName": "ARZUMATA_QM_CameraPanAndZoom",
+  "Assemblies": [
+    "QM_CameraPanAndZoom.dll"
+  ],
+  "Dependencies": []
+}

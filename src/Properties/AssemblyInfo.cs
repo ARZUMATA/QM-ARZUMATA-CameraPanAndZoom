@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("QM_CameraZoomTweaker")]
+[assembly: AssemblyTitle("QM_CameraPanAndZoom")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("QM_CameraZoomTweaker")]
+[assembly: AssemblyProduct("QM_CameraPanAndZoom")]
 [assembly: AssemblyCopyright("Copyright © 2025 ARZUMATA")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
