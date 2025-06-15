@@ -32,9 +32,6 @@ namespace QM_CameraZoomTweaker
 
         private static float lastCameraPositionChangeTime = 0f;
 
-        private static int ppuStep = 6;
-        private static float zoomDuration = 0.05f; // Duration of zoom animation in seconds
-
         private static class CursorState
         {
             public static Vector3 MouseWorldPosBefore { get; set; }
@@ -306,7 +303,7 @@ namespace QM_CameraZoomTweaker
             }
 
             // Calculate final step size
-            int dynamicStep = Mathf.RoundToInt(ppuStep * stepMultiplier);
+            int dynamicStep = Mathf.RoundToInt(ZoomConfiguration.PpuStep * stepMultiplier);
 
             // Ensure minimum step size of 1
             dynamicStep = Mathf.Max(1, dynamicStep);
@@ -316,13 +313,13 @@ namespace QM_CameraZoomTweaker
             {
                 // When zooming in and below default, add extra step to reach default faster
                 float biasToDefault = (ZoomConfiguration.PpuDefault - currentPPU) / ZoomConfiguration.PpuDefault;
-                dynamicStep += Mathf.RoundToInt(biasToDefault * ppuStep * 0.5f);
+                dynamicStep += Mathf.RoundToInt(biasToDefault * ZoomConfiguration.PpuStep * 0.5f);
             }
             else if (!isZoomingIn && currentPPU > ZoomConfiguration.PpuDefault)
             {
                 // When zooming out and above default, add extra step to reach default faster
                 float biasToDefault = (currentPPU - ZoomConfiguration.PpuDefault) / ZoomConfiguration.PpuDefault;
-                dynamicStep += Mathf.RoundToInt(biasToDefault * ppuStep * 0.5f);
+                dynamicStep += Mathf.RoundToInt(biasToDefault * ZoomConfiguration.PpuStep * 0.5f);
             }
 
             Plugin.Logger.Log($"Dynamic step calculation - Current PPU: {currentPPU}, Is Zoom In: {isZoomingIn}, Step Multiplier: {stepMultiplier:F2}, Final Step: {dynamicStep}");
@@ -509,7 +506,7 @@ namespace QM_CameraZoomTweaker
         private static void LoadConfiguration()
         {
             CameraConfiguration.CameraMoveSpeed = Plugin.Config.CameraMoveDuration / 100f;
-            zoomDuration = Plugin.Config.ZoomDuration / 100f;
+            ZoomConfiguration.Duration = Plugin.Config.ZoomDuration / 100f;
             PanState.Sensitivity = Plugin.Config.PanSensitivity;
             ZoomConfiguration.AlternativeMode = Plugin.Config.ZoomAlternativeMode;
             ZoomConfiguration.PpuMin = Plugin.Config.ZoomMin;
@@ -519,7 +516,7 @@ namespace QM_CameraZoomTweaker
             {
                 Plugin.Logger.Log($"Using alternative zoom");
                 CameraConfiguration.CameraMoveSpeed = 0f;
-                zoomDuration = 0f;
+                ZoomConfiguration.Duration = 0f;
                 UpdateCameraZoomPPU();
                 isInitialized = true;
             }
@@ -557,7 +554,7 @@ namespace QM_CameraZoomTweaker
             if (ZoomState.IsZooming)
             {
                 float elapsedTime = Time.time - ZoomState.ZoomStartTime;
-                float progress = Mathf.Clamp01(elapsedTime / zoomDuration);
+                float progress = Mathf.Clamp01(elapsedTime / ZoomConfiguration.Duration);
 
                 // Use smooth curve for zoom transition
                 float smoothProgress = Mathf.SmoothStep(0f, 1f, progress);
