@@ -359,84 +359,12 @@ namespace QM_CameraZoomTweaker
             newArray[centralIndex] = ppuDefault;
             Plugin.Logger.Log($"centralIndex: {centralIndex}");
 
-            // Zoom In - gradually increasing increments (bigger zoom = bigger increase)
-            // Zoom In - with minimum step size to avoid slowdown in middle
-            var zoomInRange = ppuMax - ppuDefault;
-            var minStepSize = 4; // Minimum step to avoid slowdown
-            for (int i = centralIndex - 1, step = 1; i >= 0; i--, step++)
-            {
-                var progressRatio = (float)step / Plugin.Config.ZoomInSteps;
+            FillZoomLevelsArray(newArray, centralIndex);
+            UpdateCameraZoomProperties(newArray, centralIndex);
+        }
 
-                // Use a curve that provides consistent middle steps but accelerates at extremes
-                var curveValue = progressRatio < 0.5f
-                    ? 0.5f + progressRatio // Linear growth in first half
-                    : 0.5f + progressRatio + (progressRatio - 0.5f) * progressRatio; // Accelerated growth in second half
-
-                var increment = Math.Max(minStepSize, (int)(zoomInRange * curveValue / Plugin.Config.ZoomInSteps * CURVE_ACCELERATION_FACTOR));
-
-                var newValue = newArray[i + 1] + increment;
-                newArray[i] = Math.Min((int)ppuMax, newValue);
-            }
-
-            // Zoom Out - gradually decreasing decrements (making it smaller)
-            // Zoom Out - with minimum step size to avoid slowdown in middle
-            var zoomOutRange = ppuDefault - ppuMin;
-            for (int i = centralIndex + 1, step = 1; i < newArray.Length; i++, step++)
-            {
-                var progressRatio = (float)step / Plugin.Config.ZoomOutSteps;
-
-                // Similar curve for zoom out - consistent middle steps, more aggressive at extremes
-                var curveValue = progressRatio < 0.5f
-                    ? 0.5f + progressRatio // Linear decrease in first half
-                    : 0.5f + progressRatio + (progressRatio - 0.5f) * progressRatio; // Accelerated decrease in second half
-
-                var decrement = Math.Max(minStepSize, (int)(zoomOutRange * curveValue / Plugin.Config.ZoomOutSteps * CURVE_ACCELERATION_FACTOR));
-
-                var newValue = newArray[i - 1] - decrement;
-                newArray[i] = Math.Max((int)ppuMin, newValue);
-            }
-
-            for (int i = 0; i < newArray.Length; i++)
-            {
-                Plugin.Logger.Log($"newArray zoomLevels level {newArray[i]}");
-            }
-
-            //// Zoom In
-            //int increment = 6;
-            //int[] increments = { 2, 4, 6 };
-            //int incrementIndex = 0;
-            //for (int i = centralIndex, value = ppuDefault; i >= 0; i--)
-            //{
-            //    newArray[i] = value;
-            //    // value += increment;
-            //    value += increments[incrementIndex];
-            //    if ((i - centralIndex) % 2 == 0)
-            //    {
-            //        // increment = Math.Min(increment + 2, 10);
-            //        incrementIndex = (incrementIndex + 1) % increments.Length;
-            //    }
-            //}
-
-            //// Zoom Out
-            //
-            //int decrement = 6;
-            //int[] decrements = { 6, 4, 2 };
-            //int decrementIndex = 0;
-            //for (int i = centralIndex, value = ppuDefault; i < newArray.Length; i++)
-            //{
-            //    newArray[i] = value;
-            //    value -= decrements[decrementIndex];
-            //    //value -= decrement;
-            //    if ((centralIndex - i) % 2 == 0)
-            //    {
-            //        //decrement = Math.Max(decrement - 2, 2);
-            //        decrementIndex = (decrementIndex + 1) % decrements.Length;
-            //    }
-            //}
-
-            //Array.Reverse(newArray); // I'm lazy
-
-            //_zoomLevels = newArray;
+        private static void UpdateCameraZoomProperties(int[] newArray, int centralIndex)
+        {
             Plugin.Logger.Log($"Updating gamecamera zoom vars");
 
             gameCamera._zoomLevels = newArray;
@@ -482,6 +410,51 @@ namespace QM_CameraZoomTweaker
             // Update our zoom PPU
             Plugin.Logger.Log($"updatnig pixelPerfectCamera.assetsPPU {newArray[GameCamera._lastZoom]}");
             gameCamera._pixelPerfectCamera.assetsPPU = newArray[GameCamera._lastZoom];
+        }
+
+        private static void FillZoomLevelsArray(int[] newArray, int centralIndex)
+        {
+            // Zoom In - gradually increasing increments (bigger zoom = bigger increase)
+            // Zoom In - with minimum step size to avoid slowdown in middle
+            var zoomInRange = ppuMax - ppuDefault;
+            var minStepSize = 4; // Minimum step to avoid slowdown
+            for (int i = centralIndex - 1, step = 1; i >= 0; i--, step++)
+            {
+                var progressRatio = (float)step / Plugin.Config.ZoomInSteps;
+
+                // Use a curve that provides consistent middle steps but accelerates at extremes
+                var curveValue = progressRatio < 0.5f
+                    ? 0.5f + progressRatio // Linear growth in first half
+                    : 0.5f + progressRatio + (progressRatio - 0.5f) * progressRatio; // Accelerated growth in second half
+
+                var increment = Math.Max(minStepSize, (int)(zoomInRange * curveValue / Plugin.Config.ZoomInSteps * CURVE_ACCELERATION_FACTOR));
+
+                var newValue = newArray[i + 1] + increment;
+                newArray[i] = Math.Min((int)ppuMax, newValue);
+            }
+
+            // Zoom Out - gradually decreasing decrements (making it smaller)
+            // Zoom Out - with minimum step size to avoid slowdown in middle
+            var zoomOutRange = ppuDefault - ppuMin;
+            for (int i = centralIndex + 1, step = 1; i < newArray.Length; i++, step++)
+            {
+                var progressRatio = (float)step / Plugin.Config.ZoomOutSteps;
+
+                // Similar curve for zoom out - consistent middle steps, more aggressive at extremes
+                var curveValue = progressRatio < 0.5f
+                    ? 0.5f + progressRatio // Linear decrease in first half
+                    : 0.5f + progressRatio + (progressRatio - 0.5f) * progressRatio; // Accelerated decrease in second half
+
+                var decrement = Math.Max(minStepSize, (int)(zoomOutRange * curveValue / Plugin.Config.ZoomOutSteps * CURVE_ACCELERATION_FACTOR));
+
+                var newValue = newArray[i - 1] - decrement;
+                newArray[i] = Math.Max((int)ppuMin, newValue);
+            }
+
+            for (int i = 0; i < newArray.Length; i++)
+            {
+                Plugin.Logger.Log($"newArray zoomLevels level {newArray[i]}");
+            }
         }
 
         private static void Initialize()
