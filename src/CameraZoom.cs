@@ -35,14 +35,15 @@ namespace QM_CameraZoomTweaker
         private static Vector3 mouseWorldPosAfter;
 
         private static float lastZoomTime = 0f;
-        private static float zoomCooldown = 0.01f; // Minimum time between zoom operations (ms)
+        private const float ZOOM_COOLDOWN = 0.01f; // Minimum time between zoom operations (ms)
 
         private static Vector3 storedCameraPosition;
         private static float lastCameraPositionChangeTime = 0f;
-        private static float cameraStoppedThreshold = 0.01f; // 100ms - time to wait if camera position doesn't change
-        private static float cameraPositionTolerance = 0.01f; // Small tolerance for position comparison
+        private const float MIN_MOVEMENT_THRESHOLD = 0.1f;
+        private const float CURVE_ACCELERATION_FACTOR = 1.8f;
+        private const float CAMERA_STOPPED_THRESHOLD = 0.01f; // 100ms - time to wait if camera position doesn't change
+        private const float CAMERA_POSITION_TOLERANCE = 0.01f; // Small tolerance for position comparison
         private static float cameraMoveSpeed = 0.05f; // Speed of camera movement (0.25f is default)
-
         private static bool isPanning = false;
         private static Vector3 lastPanMousePosition;
         private static float panSensitivity = 1.0f; // // Adjustable pan sensitivity multiplier (1.0 = normal, 2.0 = double speed, 0.5 = half speed)
@@ -364,7 +365,7 @@ namespace QM_CameraZoomTweaker
                     ? 0.5f + progressRatio // Linear growth in first half
                     : 0.5f + progressRatio + (progressRatio - 0.5f) * progressRatio; // Accelerated growth in second half
 
-                var increment = Math.Max(minStepSize, (int)(zoomInRange * curveValue / Plugin.Config.ZoomInSteps * 1.8f));
+                var increment = Math.Max(minStepSize, (int)(zoomInRange * curveValue / Plugin.Config.ZoomInSteps * CURVE_ACCELERATION_FACTOR));
 
                 var newValue = newArray[i + 1] + increment;
                 newArray[i] = Math.Min((int)ppuMax, newValue);
@@ -382,7 +383,7 @@ namespace QM_CameraZoomTweaker
                     ? 0.5f + progressRatio // Linear decrease in first half
                     : 0.5f + progressRatio + (progressRatio - 0.5f) * progressRatio; // Accelerated decrease in second half
 
-                var decrement = Math.Max(minStepSize, (int)(zoomOutRange * curveValue / Plugin.Config.ZoomOutSteps * 1.8f));
+                var decrement = Math.Max(minStepSize, (int)(zoomOutRange * curveValue / Plugin.Config.ZoomOutSteps * CURVE_ACCELERATION_FACTOR));
 
                 var newValue = newArray[i - 1] - decrement;
                 newArray[i] = Math.Max((int)ppuMin, newValue);
@@ -591,7 +592,7 @@ namespace QM_CameraZoomTweaker
                 Vector3 currentPos = dungeonGameMode._camera.transform.position;
 
                 // Check if camera position has changed since last frame
-                if (Vector3.Distance(currentPos, storedCameraPosition) > cameraPositionTolerance)
+                if (Vector3.Distance(currentPos, storedCameraPosition) > CAMERA_POSITION_TOLERANCE)
                 {
                     // Camera is still moving, update stored position and time
                     storedCameraPosition = currentPos;
@@ -604,8 +605,8 @@ namespace QM_CameraZoomTweaker
                 }
 
                 // Check if we can stop camera movement handling
-                bool cooldownComplete = Time.time - lastZoomTime > zoomCooldown;
-                bool cameraStoppedMoving = Time.time - lastCameraPositionChangeTime > cameraStoppedThreshold;
+                bool cooldownComplete = Time.time - lastZoomTime > ZOOM_COOLDOWN;
+                bool cameraStoppedMoving = Time.time - lastCameraPositionChangeTime > CAMERA_STOPPED_THRESHOLD;
                 bool zoomComplete = !isZooming; // Also wait for zoom to complete
 
                 if (cooldownComplete && cameraStoppedMoving && zoomComplete)
@@ -628,7 +629,7 @@ namespace QM_CameraZoomTweaker
         private static bool CanSmoothZoom()
         {
             // Only start smooth zoom if there's a difference
-            if (Mathf.Abs(oldPPU - newPPU) > 0.1f)
+            if (Mathf.Abs(oldPPU - newPPU) > MIN_MOVEMENT_THRESHOLD)
             {
                 zoomStartTime = Time.time;
                 Plugin.Logger.Log($"Starting smooth zoom: {oldPPU} -> {newPPU}");
