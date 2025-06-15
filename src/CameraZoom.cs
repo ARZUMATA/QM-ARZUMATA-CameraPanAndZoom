@@ -46,11 +46,6 @@ namespace QM_CameraZoomTweaker
         private static int ppuStep = 6;
         private static float zoomDuration = 0.05f; // Duration of zoom animation in seconds
 
-        // ppuDefault must be default for new default zoom
-        private static int ppuDefault = 64;
-        private static float ppuMin = 5f;
-        private static float ppuMax = 400f;
-
         private static class CursorState
         {
             public static Vector3 MouseWorldPosBefore { get; set; }
@@ -171,11 +166,11 @@ namespace QM_CameraZoomTweaker
             // Calculate new PPU with bounds checking
             if (isZoomIn)
             {
-                ZoomState.NewPPU = Mathf.Clamp(ZoomState.OldPPU + dynamicStep, ppuMin, ppuMax);
+                ZoomState.NewPPU = Mathf.Clamp(ZoomState.OldPPU + dynamicStep, ZoomConfiguration.PpuMin, ZoomConfiguration.PpuMax);
             }
             else
             {
-                ZoomState.NewPPU = Mathf.Clamp(ZoomState.OldPPU - dynamicStep, ppuMin, ppuMax);
+                ZoomState.NewPPU = Mathf.Clamp(ZoomState.OldPPU - dynamicStep, ZoomConfiguration.PpuMin, ZoomConfiguration.PpuMax);
             }
 
             Plugin.Logger.Log($"newPPU PPU: {ZoomState.NewPPU}");
@@ -281,7 +276,7 @@ namespace QM_CameraZoomTweaker
         private static int CalculateDynamicStep(float currentPPU, bool isZoomingIn)
         {
             // Calculate distance from default (64)
-            float distanceFromDefault = Mathf.Abs(currentPPU - ppuDefault);
+            float distanceFromDefault = Mathf.Abs(currentPPU - ZoomConfiguration.PpuDefault);
 
             // Calculate step multiplier based on current PPU value
             float stepMultiplier = 1f;
@@ -290,33 +285,33 @@ namespace QM_CameraZoomTweaker
             {
                 // For zoom in: larger PPU values get bigger steps
                 // Use exponential scaling for higher zoom levels
-                if (currentPPU > ppuDefault)
+                if (currentPPU > ZoomConfiguration.PpuDefault)
                 {
                     // Above default: increase step size exponentially
-                    float ratio = (currentPPU - ppuDefault) / (ppuMax - ppuDefault);
+                    float ratio = (currentPPU - ZoomConfiguration.PpuDefault) / (ZoomConfiguration.PpuMax - ZoomConfiguration.PpuDefault);
                     stepMultiplier = 1f + (ratio * ratio * 3f); // Exponential growth
                 }
                 else
                 {
                     // Below default: smaller steps to approach default smoothly
-                    float ratio = (ppuDefault - currentPPU) / (ppuDefault - ppuMin);
+                    float ratio = (ZoomConfiguration.PpuDefault - currentPPU) / (ZoomConfiguration.PpuDefault - ZoomConfiguration.PpuMin);
                     stepMultiplier = 0.5f + (ratio * 0.5f); // Gradual approach to default
                 }
             }
             else
             {
                 // For zoom out: smaller PPU values get smaller steps
-                if (currentPPU < ppuDefault)
+                if (currentPPU < ZoomConfiguration.PpuDefault)
                 {
                     // Below default: decrease step size as we get further from default
-                    float ratio = (ppuDefault - currentPPU) / (ppuDefault - ppuMin);
+                    float ratio = (ZoomConfiguration.PpuDefault - currentPPU) / (ZoomConfiguration.PpuDefault - ZoomConfiguration.PpuMin);
                     stepMultiplier = 1f - (ratio * 0.7f); // Smaller steps as we go further
                     stepMultiplier = Mathf.Max(stepMultiplier, 0.2f); // Minimum step multiplier
                 }
                 else
                 {
                     // Above default: larger steps to approach default faster
-                    float ratio = (currentPPU - ppuDefault) / (ppuMax - ppuDefault);
+                    float ratio = (currentPPU - ZoomConfiguration.PpuDefault) / (ZoomConfiguration.PpuMax - ZoomConfiguration.PpuDefault);
                     stepMultiplier = 1f + (ratio * 2f); // Faster approach to default
                 }
             }
@@ -328,16 +323,16 @@ namespace QM_CameraZoomTweaker
             dynamicStep = Mathf.Max(1, dynamicStep);
 
             // Add bias towards default value (64)
-            if (isZoomingIn && currentPPU < ppuDefault)
+            if (isZoomingIn && currentPPU < ZoomConfiguration.PpuDefault)
             {
                 // When zooming in and below default, add extra step to reach default faster
-                float biasToDefault = (ppuDefault - currentPPU) / ppuDefault;
+                float biasToDefault = (ZoomConfiguration.PpuDefault - currentPPU) / ZoomConfiguration.PpuDefault;
                 dynamicStep += Mathf.RoundToInt(biasToDefault * ppuStep * 0.5f);
             }
-            else if (!isZoomingIn && currentPPU > ppuDefault)
+            else if (!isZoomingIn && currentPPU > ZoomConfiguration.PpuDefault)
             {
                 // When zooming out and above default, add extra step to reach default faster
-                float biasToDefault = (currentPPU - ppuDefault) / ppuDefault;
+                float biasToDefault = (currentPPU - ZoomConfiguration.PpuDefault) / ZoomConfiguration.PpuDefault;
                 dynamicStep += Mathf.RoundToInt(biasToDefault * ppuStep * 0.5f);
             }
 
@@ -397,7 +392,7 @@ namespace QM_CameraZoomTweaker
                 centralIndex -= 1;
             }
 
-            newArray[centralIndex] = ppuDefault;
+            newArray[centralIndex] = ZoomConfiguration.PpuDefault;
             Plugin.Logger.Log($"centralIndex: {centralIndex}");
 
             FillZoomLevelsArray(newArray, centralIndex);
@@ -453,7 +448,7 @@ namespace QM_CameraZoomTweaker
         {
             // Zoom In - gradually increasing increments (bigger zoom = bigger increase)
             // Zoom In - with minimum step size to avoid slowdown in middle
-            var zoomInRange = ppuMax - ppuDefault;
+            var zoomInRange = ZoomConfiguration.PpuMax - ZoomConfiguration.PpuDefault;
             var minStepSize = 4; // Minimum step to avoid slowdown
             for (int i = centralIndex - 1, step = 1; i >= 0; i--, step++)
             {
@@ -467,12 +462,12 @@ namespace QM_CameraZoomTweaker
                 var increment = Math.Max(minStepSize, (int)(zoomInRange * curveValue / Plugin.Config.ZoomInSteps * CURVE_ACCELERATION_FACTOR));
 
                 var newValue = newArray[i + 1] + increment;
-                newArray[i] = Math.Min((int)ppuMax, newValue);
+                newArray[i] = Math.Min((int)ZoomConfiguration.PpuMax, newValue);
             }
 
             // Zoom Out - gradually decreasing decrements (making it smaller)
             // Zoom Out - with minimum step size to avoid slowdown in middle
-            var zoomOutRange = ppuDefault - ppuMin;
+            var zoomOutRange = ZoomConfiguration.PpuDefault - ZoomConfiguration.PpuMin;
             for (int i = centralIndex + 1, step = 1; i < newArray.Length; i++, step++)
             {
                 var progressRatio = (float)step / Plugin.Config.ZoomOutSteps;
@@ -485,7 +480,7 @@ namespace QM_CameraZoomTweaker
                 var decrement = Math.Max(minStepSize, (int)(zoomOutRange * curveValue / Plugin.Config.ZoomOutSteps * CURVE_ACCELERATION_FACTOR));
 
                 var newValue = newArray[i - 1] - decrement;
-                newArray[i] = Math.Max((int)ppuMin, newValue);
+                newArray[i] = Math.Max((int)ZoomConfiguration.PpuMin, newValue);
             }
 
             for (int i = 0; i < newArray.Length; i++)
@@ -528,8 +523,8 @@ namespace QM_CameraZoomTweaker
             zoomDuration = Plugin.Config.ZoomDuration / 100f;
             PanState.Sensitivity = Plugin.Config.PanSensitivity;
             alternativeMode = Plugin.Config.ZoomAlternativeMode;
-            ppuMin = Plugin.Config.ZoomMin;
-            ppuMax = Plugin.Config.ZoomMax;
+            ZoomConfiguration.PpuMin = Plugin.Config.ZoomMin;
+            ZoomConfiguration.PpuMax = Plugin.Config.ZoomMax;
 
             if (alternativeMode)
             {
@@ -545,7 +540,7 @@ namespace QM_CameraZoomTweaker
         {
             if (alternativeMode)
             {
-                gameCamera._pixelPerfectCamera.assetsPPU = (int)(ZoomState.NewPPU == 0 ? ppuDefault : ZoomState.NewPPU);
+                gameCamera._pixelPerfectCamera.assetsPPU = (int)(ZoomState.NewPPU == 0 ? ZoomConfiguration.PpuDefault : ZoomState.NewPPU);
             }
             else
             {
