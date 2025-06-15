@@ -1,0 +1,12 @@
+{
+  "UniqueModName": "ARZUMATA_QM_CameraPanAndZoom",
+  "Assemblies": [
+    "QM_CameraPanAndZoom.dll"
+  ],
+  "Dependencies": [],
+  "SteamTags": [
+    "0.9.1",
+    "0.9",
+    "Quality of Life"
+  ]
+}
