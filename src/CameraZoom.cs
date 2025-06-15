@@ -380,15 +380,15 @@ namespace QM_CameraZoomTweaker
             {
                 Plugin.Logger.Log($"_lastZoom > 0)");
 
-                if (_lastZoom < newArray.Length) // We within of array bounds
+                if (_lastZoom < gameCamera._zoomLevels.Length) // We within of array bounds
                 {
-                    Plugin.Logger.Log($"_lastZoom < newArray.Length");
-                    _lastZoom = centralIndex;
-                    GameCamera._lastZoom = centralIndex;
+                    Plugin.Logger.Log($"_lastZoom < gameCamera._zoomLevels.Length");
+                    _lastZoom = gameCamera._defaultZoomIndex;
+                    GameCamera._lastZoom = gameCamera._defaultZoomIndex;
                 }
                 else
                 {
-                    Plugin.Logger.Log($"_lastZoom >= newArray.Length");
+                    Plugin.Logger.Log($"_lastZoom >= gameCamera._zoomLevels.Length");
                     _lastZoom = -1;
                 }
 
@@ -406,10 +406,6 @@ namespace QM_CameraZoomTweaker
             }
 
             Plugin.Logger.Log($"_lastZoom {_lastZoom}");
-
-            // Update our zoom PPU
-            Plugin.Logger.Log($"updatnig pixelPerfectCamera.assetsPPU {newArray[GameCamera._lastZoom]}");
-            gameCamera._pixelPerfectCamera.assetsPPU = newArray[GameCamera._lastZoom];
         }
 
         private static void FillZoomLevelsArray(int[] newArray, int centralIndex)
@@ -463,30 +459,16 @@ namespace QM_CameraZoomTweaker
             {
                 try
                 {
-                    cameraMoveSpeed = Plugin.Config.CameraMoveDuration / 100f;
-                    zoomDuration = Plugin.Config.ZoomDuration / 100f;
-                    PanState.Sensitivity = Plugin.Config.PanSensitivity;
-                    alternativeMode = Plugin.Config.ZoomAlternativeMode;
-                    ppuMin = Plugin.Config.ZoomMin;
-                    ppuMax = Plugin.Config.ZoomMax;
+                    FindGameObjects();
+                    LoadConfiguration();
 
-                    dungeonGameMode = GameObject.FindObjectOfType<DungeonGameMode>(true);
-                    gameCamera = dungeonGameMode._camera;
-                    camera = dungeonGameMode._camera.GetComponent<Camera>();
-
-                    if (alternativeMode)
+                    if (isInitialized)
                     {
-                        Plugin.Logger.Log($"Using alternative zoom");
-                        cameraMoveSpeed = 0f;
-                        zoomDuration = 0f;
-                        gameCamera._pixelPerfectCamera.assetsPPU = (int)(ZoomState.NewPPU == 0 ? ppuDefault : ZoomState.NewPPU);
-                        isInitialized = true;
                         return;
                     }
 
-                    //var gameCamera = GameObject.FindObjectOfType<GameCamera>();
-
                     CreateZoomLevelsArray();
+                    UpdateCameraZoomPPU();
                     isInitialized = true;
                     Plugin.Logger.Log("Initialized");
 
@@ -497,6 +479,46 @@ namespace QM_CameraZoomTweaker
                     Plugin.Logger.Log($"{ex.StackTrace}");
                 }
             }
+        }
+
+        private static void LoadConfiguration()
+        {
+            cameraMoveSpeed = Plugin.Config.CameraMoveDuration / 100f;
+            zoomDuration = Plugin.Config.ZoomDuration / 100f;
+            PanState.Sensitivity = Plugin.Config.PanSensitivity;
+            alternativeMode = Plugin.Config.ZoomAlternativeMode;
+            ppuMin = Plugin.Config.ZoomMin;
+            ppuMax = Plugin.Config.ZoomMax;
+
+            if (alternativeMode)
+            {
+                Plugin.Logger.Log($"Using alternative zoom");
+                cameraMoveSpeed = 0f;
+                zoomDuration = 0f;
+                UpdateCameraZoomPPU();
+                isInitialized = true;
+            }
+        }
+
+        private static void UpdateCameraZoomPPU()
+        {
+            if (alternativeMode)
+            {
+                gameCamera._pixelPerfectCamera.assetsPPU = (int)(ZoomState.NewPPU == 0 ? ppuDefault : ZoomState.NewPPU);
+            }
+            else
+            {
+                // Update our zoom PPU
+                Plugin.Logger.Log($"updatnig pixelPerfectCamera.assetsPPU {gameCamera._zoomLevels[GameCamera._lastZoom]}");
+                gameCamera._pixelPerfectCamera.assetsPPU = gameCamera._zoomLevels[GameCamera._lastZoom];
+            }
+        }
+
+        private static void FindGameObjects()
+        {
+            dungeonGameMode = GameObject.FindObjectOfType<DungeonGameMode>(true);
+            gameCamera = dungeonGameMode._camera;
+            camera = dungeonGameMode._camera.GetComponent<Camera>();
         }
 
         private static void HandleCameraMovement()
