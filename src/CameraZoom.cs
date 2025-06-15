@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using MGSC;
 using System;
 using System.Data.SqlTypes;
@@ -53,12 +53,55 @@ namespace QM_CameraZoomTweaker
         private static float ppuMin = 5f;
         private static float ppuMax = 400f;
 
+        private static class CursorState
+        {
+            public static Vector3 MouseWorldPosBefore { get; set; }
+            public static Vector3 MouseWorldPosAfter { get; set; }
+        }
+
+        private static class ModConfiguration
+        {
+            public static bool IsInitialized { get; set; } = false;
+            public static bool ModZoomTweakEnabled { get; set; } = false;
+            public static bool ModPanningEnabled { get; set; } = false;
+        }
+
+        private static class CameraConfiguration
+        {
+            public static bool CameraNeedMoving { get; set; } = false;
+            public static Vector3 StoredCameraPosition { get; set; }
+            public const float CAMERA_STOPPED_THRESHOLD = 0.01f; // 100ms - time to wait if camera position doesn't change
+            public const float CAMERA_POSITION_TOLERANCE = 0.01f; // Small tolerance for position comparison
+            public static float CameraMoveSpeed { get; set; } = 0.05f; // Speed of camera movement (0.25f is default)
+        }
+
+        private static class CameraState
+        {
+            public static float LastCameraPositionChangeTime { get; set; } = 0f;
+            public static int LastZoom { get; set; } = -1;
+            public static bool CooldownInProgress { get; set; }
+        }
+
+        private static class ZoomConfiguration
+        {
+            public static bool AlternativeMode { get; set; } = false;
+            public static int PpuStep { get; set; } = 6;
+            public static float Duration { get; set; } = 0.05f; // Duration of zoom animation in seconds
+            public static int PpuDefault { get; set; } = 64; // ZoomConfiguration.PpuDefault must be default for new default zoom
+            public static float PpuMin { get; set; } = 5f;
+            public static float PpuMax { get; set; } = 400f;
+            public const float CURVE_ACCELERATION_FACTOR = 1.8f;
+            public const float MIN_MOVEMENT_THRESHOLD = 0.1f;
+            public const float ZOOM_COOLDOWN = 0.01f; // Minimum time between zoom operations (ms)
+        }
+
         private static class ZoomState
         {
             public static float OldPPU { get; set; } = 0f;
             public static float NewPPU { get; set; } = 0f;
             public static bool IsZooming { get; set; } = false;
             public static float ZoomStartTime { get; set; } = 0f;
+            public static float LastZoomTime { get; set; } = 0f;
         }
 
         private static class PanState
