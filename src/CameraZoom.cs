@@ -1,4 +1,4 @@
-using HarmonyLib;
+﻿using HarmonyLib;
 using MGSC;
 using System;
 using System.Data.SqlTypes;
@@ -30,8 +30,6 @@ namespace QM_CameraZoomTweaker
         private static bool cameraNeedMoving;
         private static bool cooldownInProgress;
         private static CellPosition cellPosition;
-        private static Vector3 mouseWorldPosBefore;
-        private static Vector3 mouseWorldPosAfter;
 
         private static float lastZoomTime = 0f;
         private const float ZOOM_COOLDOWN = 0.01f; // Minimum time between zoom operations (ms)
@@ -603,19 +601,19 @@ namespace QM_CameraZoomTweaker
                 storedCameraPosition = currentCameraPos;
                 lastCameraPositionChangeTime = Time.time;
 
-                mouseWorldPosBefore = MouseScreenToWorldPoint();
+                CursorState.MouseWorldPosBefore = MouseScreenToWorldPoint();
 
                 // Predict where mouse will be after zoom
-                mouseWorldPosAfter = alternativeMode ? PredictMouseWorldPositionAfterZoom(ZoomState.NewPPU) : PredictMouseWorldPositionAfterZoom(gameCamera._zoomLevels[gameCamera._currentZoomIndex]);
+                CursorState.MouseWorldPosAfter = alternativeMode ? PredictMouseWorldPositionAfterZoom(ZoomState.NewPPU) : PredictMouseWorldPositionAfterZoom(gameCamera._zoomLevels[gameCamera._currentZoomIndex]);
 
                 // Calculate the difference - this is how much the world point under cursor will shift
-                Vector3 worldShift = mouseWorldPosAfter - mouseWorldPosBefore;
+                Vector3 worldShift = CursorState.MouseWorldPosAfter - CursorState.MouseWorldPosBefore;
 
                 // Move camera by the opposite of this shift to keep the same world point under cursor
                 Vector3 targetCameraPos = currentCameraPos - worldShift;
 
-                Plugin.Logger.Log($"Predicted mouse world pos after zoom: {mouseWorldPosAfter}");
-                Plugin.Logger.Log($"Mouse world pos before zoom: {mouseWorldPosBefore}");
+                Plugin.Logger.Log($"Predicted mouse world pos after zoom: {CursorState.MouseWorldPosAfter}");
+                Plugin.Logger.Log($"Mouse world pos before zoom: {CursorState.MouseWorldPosBefore}");
                 Plugin.Logger.Log($"World shift: {worldShift}");
                 Plugin.Logger.Log($"Target camera pos: {targetCameraPos}");
 
