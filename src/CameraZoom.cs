@@ -77,6 +77,16 @@ namespace QM_CameraZoomTweaker
             public static float Sensitivity { get; set; } = 1.0f; // Adjustable pan sensitivity multiplier (1.0 = normal, 2.0 = double speed, 0.5 = half speed)
         }
 
+        private static class ZoomCalculationConstants
+        {
+            public const float MOVEMENT_THRESHOLD = 0.1f;
+            public const float PROGRESS_MIDPOINT = 0.5f;
+            public const float PROGRESS_MIDPOINT_FAST = 2f;
+            public const float EXPONENTIAL_GROWTH_FACTOR = 3f;
+            public const float STEP_REDUCTION_FACTOR = 0.7f;
+            public const float MIN_STEP_MULTIPLIER = 0.2f;
+        }
+
         [Hook(ModHookType.MainMenuStarted)]
         public static void MainMenuStarted(IModContext context)
         {
@@ -262,13 +272,13 @@ namespace QM_CameraZoomTweaker
                 {
                     // Above default: increase step size exponentially
                     float ratio = (currentPPU - ZoomConfiguration.PpuDefault) / (ZoomConfiguration.PpuMax - ZoomConfiguration.PpuDefault);
-                    stepMultiplier = 1f + (ratio * ratio * 3f); // Exponential growth
+                    stepMultiplier = 1f + (ratio * ratio * ZoomCalculationConstants.EXPONENTIAL_GROWTH_FACTOR); // Exponential growth
                 }
                 else
                 {
                     // Below default: smaller steps to approach default smoothly
                     float ratio = (ZoomConfiguration.PpuDefault - currentPPU) / (ZoomConfiguration.PpuDefault - ZoomConfiguration.PpuMin);
-                    stepMultiplier = 0.5f + (ratio * 0.5f); // Gradual approach to default
+                    stepMultiplier = 0.5f + (ratio * ZoomCalculationConstants.PROGRESS_MIDPOINT); // Gradual approach to default
                 }
             }
             else
@@ -278,14 +288,14 @@ namespace QM_CameraZoomTweaker
                 {
                     // Below default: decrease step size as we get further from default
                     float ratio = (ZoomConfiguration.PpuDefault - currentPPU) / (ZoomConfiguration.PpuDefault - ZoomConfiguration.PpuMin);
-                    stepMultiplier = 1f - (ratio * 0.7f); // Smaller steps as we go further
-                    stepMultiplier = Mathf.Max(stepMultiplier, 0.2f); // Minimum step multiplier
+                    stepMultiplier = 1f - (ratio * ZoomCalculationConstants.STEP_REDUCTION_FACTOR); // Smaller steps as we go further
+                    stepMultiplier = Mathf.Max(stepMultiplier, ZoomCalculationConstants.MIN_STEP_MULTIPLIER); // Minimum step multiplier
                 }
                 else
                 {
                     // Above default: larger steps to approach default faster
                     float ratio = (currentPPU - ZoomConfiguration.PpuDefault) / (ZoomConfiguration.PpuMax - ZoomConfiguration.PpuDefault);
-                    stepMultiplier = 1f + (ratio * 2f); // Faster approach to default
+                    stepMultiplier = 1f + (ratio * ZoomCalculationConstants.PROGRESS_MIDPOINT_FAST); // Faster approach to default
                 }
             }
 
