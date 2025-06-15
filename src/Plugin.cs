@@ -130,7 +130,7 @@ namespace QM_CameraPanAndZoom
         // MCM Related Start
         private static bool RegisterToMCM()
         {
-            ModConfigMenuAPI.RegisterModConfig("Camera Zoom Tweaker", Plugin.ConfigPath, delegate (Dictionary<string, object> properties)
+            ModConfigMenuAPI.RegisterModConfig("Camera Pan And Zoom", Plugin.ConfigPath, delegate (Dictionary<string, object> properties)
             {
                 Plugin.Config.LoadConfigMCM(properties);
             });

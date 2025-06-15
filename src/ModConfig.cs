@@ -20,10 +20,10 @@ namespace QM_CameraPanAndZoom
         public bool DebugLog { get; set; } = false;
 
         [JsonIgnore]
-        public bool ModZoomTweakEnabled { get; set; } = true;
+        public bool ZoomTweakEnabled { get; set; } = true;
 
         [JsonIgnore]
-        public bool ModPanningEnabled { get; set; } = true;
+        public bool PanningEnabled { get; set; } = true;
 
         [JsonIgnore]
         public bool ZoomAlternativeMode { get; set; } = true;
